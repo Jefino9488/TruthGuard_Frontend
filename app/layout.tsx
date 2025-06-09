@@ -4,7 +4,7 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import Link from "next/link"
-import { Shield, Database, Search, BarChart3, MessageSquare, TrendingUp, Zap } from "lucide-react"
+import { Shield, Database, Search, BarChart3, MessageSquare, TrendingUp, Zap, Home } from "lucide-react"
 import { Suspense } from "react"
 
 const inter = Inter({ subsets: ["latin"] })
@@ -34,6 +34,10 @@ export default function RootLayout({
                     <span className="text-sm text-gray-500">× MongoDB</span>
                   </Link>
                   <div className="flex items-center space-x-6">
+                    <Link href="/" className="flex items-center space-x-1 text-sm hover:text-blue-600">
+                      <Home className="h-4 w-4" />
+                      <span>Home</span>
+                    </Link>
                     <Link href="/dashboard" className="flex items-center space-x-1 text-sm hover:text-blue-600">
                       <BarChart3 className="h-4 w-4" />
                       <span>Dashboard</span>
@@ -50,7 +54,6 @@ export default function RootLayout({
                       <TrendingUp className="h-4 w-4" />
                       <span>Trends</span>
                     </Link>
-                    ss
                     <Link href="/chat" className="flex items-center space-x-1 text-sm hover:text-blue-600">
                       <MessageSquare className="h-4 w-4" />
                       <span>AI Chat</span>

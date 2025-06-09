@@ -38,13 +38,13 @@ export default function HomePage() {
           </div>
 
           {/* MongoDB Challenge Badge */}
-          <div className="inline-flex items-center space-x-2 bg-green-100 text-green-800 px-4 py-2 rounded-full text-sm font-medium">
+          {/* <div className="inline-flex items-center space-x-2 bg-green-100 text-green-800 px-4 py-2 rounded-full text-sm font-medium">
             <Database className="h-4 w-4" />
             <span>Built for MongoDB Hackathon Challenge</span>
             <Badge variant="secondary" className="bg-green-200 text-green-800">
               $12,500 Prize
             </Badge>
-          </div>
+          </div> */}
         </div>
       </section>
 

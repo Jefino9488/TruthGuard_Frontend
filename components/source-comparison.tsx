@@ -1,30 +1,98 @@
+// components/source-comparison.tsx
 "use client"
 
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts"
+import React from 'react';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table"; // Assuming these are available from shadcn/ui
+import { Badge } from "@/components/ui/badge";
 
-const data = [
-  { source: "Reuters", bias: 0.2, misinformation: 0.1 },
-  { source: "AP News", bias: 0.15, misinformation: 0.08 },
-  { source: "CNN", bias: 0.6, misinformation: 0.3 },
-  { source: "Fox News", bias: 0.8, misinformation: 0.5 },
-  { source: "MSNBC", bias: 0.7, misinformation: 0.4 },
-  { source: "BBC", bias: 0.25, misinformation: 0.12 },
-]
-
-export function SourceComparison() {
-  return (
-    <div className="h-80">
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="source" />
-          <YAxis />
-          <Tooltip formatter={(value: number) => `${(value * 100).toFixed(1)}%`} />
-          <Legend />
-          <Bar dataKey="bias" fill="#3b82f6" name="Bias Score" />
-          <Bar dataKey="misinformation" fill="#ef4444" name="Misinformation Risk" />
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
-  )
+// Data structure for Source Comparison
+interface SourceComparisonData {
+    source: string;
+    averageBias: number; // 0.0 (Left) to 1.0 (Right), 0.5 (Center)
+    averageMisinformationRisk: number; // e.g., 0.0 (Low) to 1.0 (High)
+    averageCredibility: number; // e.g., 0.0 (Low) to 1.0 (High)
+    articleCount: number;
 }
+
+interface SourceComparisonProps {
+    data: SourceComparisonData[];
+}
+
+export const SourceComparison: React.FC<SourceComparisonProps> = ({ data }) => {
+    // Helper to determine bias direction string and color
+    const getBiasLabelAndColor = (bias: number) => {
+        if (bias >= 0 && bias <= 0.2) return { label: 'Left', color: 'bg-green-500' };
+        if (bias > 0.2 && bias <= 0.4) return { label: 'Left-Center', color: 'bg-lime-500' };
+        if (bias > 0.4 && bias < 0.6) return { label: 'Center', color: 'bg-blue-500' };
+        if (bias >= 0.6 && bias < 0.8) return { label: 'Right-Center', color: 'bg-orange-500' };
+        if (bias >= 0.8 && bias <= 1.0) return { label: 'Right', color: 'bg-red-500' };
+        return { label: 'Unknown', color: 'bg-gray-400' };
+    };
+
+    // Helper to determine credibility level string and color
+    const getCredibilityLabelAndColor = (credibility: number) => {
+        if (credibility > 0.8) return { label: 'High', color: 'bg-green-600' };
+        if (credibility > 0.5) return { label: 'Medium', color: 'bg-yellow-500' };
+        return { label: 'Low', color: 'bg-red-600' };
+    };
+
+    // Helper to determine misinformation risk label and color
+    const getMisinformationLabelAndColor = (risk: number) => {
+        if (risk < 0.3) return { label: 'Low Risk', color: 'bg-green-600' };
+        if (risk < 0.6) return { label: 'Moderate Risk', color: 'bg-yellow-500' };
+        return { label: 'High Risk', color: 'bg-red-600' };
+    };
+
+
+    if (!data || data.length === 0) {
+        return (
+            <div className="text-center py-8 text-gray-500">
+                No source comparison data available. Please ensure articles have 'source' and bias/misinformation/credibility scores.
+            </div>
+        );
+    }
+
+    return (
+        <div className="overflow-x-auto">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead className="w-[150px]">Source</TableHead>
+                        <TableHead>Articles</TableHead>
+                        <TableHead>Avg. Bias</TableHead>
+                        <TableHead>Bias Direction</TableHead>
+                        <TableHead>Avg. Misinformation Risk</TableHead>
+                        <TableHead>Avg. Credibility</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {data.map((item, index) => (
+                        <TableRow key={index}>
+                            <TableCell className="font-medium">{item.source}</TableCell>
+                            <TableCell>{item.articleCount}</TableCell>
+                            <TableCell>{item.averageBias.toFixed(2)}</TableCell>
+                            <TableCell>
+                                <Badge className={`${getBiasLabelAndColor(item.averageBias).color} text-white`}>
+                                    {getBiasLabelAndColor(item.averageBias).label}
+                                </Badge>
+                            </TableCell>
+                            <TableCell>{item.averageMisinformationRisk.toFixed(2)}</TableCell>
+                            <TableCell>
+                                <Badge className={`${getCredibilityLabelAndColor(item.averageCredibility).color} text-white`}>
+                                    {getCredibilityLabelAndColor(item.averageCredibility).label}
+                                </Badge>
+                            </TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
+        </div>
+    );
+};

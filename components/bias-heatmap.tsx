@@ -1,77 +1,76 @@
 "use client"
 
-const topics = ["Politics", "Economy", "Healthcare", "Technology", "Environment", "Sports"]
-const sources = ["CNN", "Fox News", "Reuters", "BBC", "MSNBC", "AP News"]
+import React from 'react';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  LabelList
+} from 'recharts';
 
-// Generate mock bias data (0-1 scale)
-const generateBiasData = () => {
-  const data = []
-  for (let i = 0; i < topics.length; i++) {
-    for (let j = 0; j < sources.length; j++) {
-      data.push({
-        topic: topics[i],
-        source: sources[j],
-        bias: Math.random(),
-        x: j,
-        y: i,
-      })
-    }
-  }
-  return data
+// Data structure for Source Bias Averages
+interface SourceBiasData {
+  source: string;
+  averageBias: number; // Average bias score for this source (e.g., 0.0 to 1.0)
 }
 
-const biasData = generateBiasData()
+interface BiasHeatmapProps {
+  data: SourceBiasData[];
+}
 
-export function BiasHeatmap() {
-  const getBiasColor = (bias: number) => {
-    if (bias < 0.2) return "#10b981" // Green
-    if (bias < 0.4) return "#84cc16" // Light green
-    if (bias < 0.6) return "#eab308" // Yellow
-    if (bias < 0.8) return "#f97316" // Orange
-    return "#ef4444" // Red
-  }
+export const BiasHeatmap: React.FC<BiasHeatmapProps> = ({ data }) => {
+  // Function to determine bar color based on bias score
+  const getBarColor = (averageBias: number) => {
+    // Assuming 0 is Left, 0.5 is Center, 1.0 is Right
+    if (averageBias <= 0.2) return '#a3e635'; // Greenish for Left
+    if (averageBias <= 0.4) return '#84cc16'; // Lighter Green for Left-Center
+    if (averageBias > 0.4 && averageBias < 0.6) return '#3b82f6'; // Blue for Center
+    if (averageBias >= 0.6 && averageBias < 0.8) return '#f97316'; // Orange for Right-Center
+    return '#ef4444'; // Red for Right
+  };
+
+  // Custom tooltip for better readability
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      const avgBias = payload[0].value;
+      const biasDirection = avgBias <= 0.4 ? 'Left-leaning' : avgBias >= 0.6 ? 'Right-leaning' : 'Centrist';
+      return (
+          <div className="p-2 bg-white border border-gray-300 rounded shadow-md text-sm">
+            <p className="font-medium text-gray-800">{label}</p>
+            <p className="text-gray-600">{`Average Bias: ${avgBias.toFixed(2)} (${biasDirection})`}</p>
+          </div>
+      );
+    }
+    return null;
+  };
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-7 gap-2 text-sm">
-        <div></div>
-        {sources.map((source) => (
-          <div key={source} className="text-center font-medium p-2">
-            {source}
-          </div>
-        ))}
-
-        {topics.map((topic, topicIndex) => (
-          <div key={topic} className="contents">
-            <div className="font-medium p-2 text-right">{topic}</div>
-            {sources.map((source, sourceIndex) => {
-              const dataPoint = biasData.find((d) => d.topic === topic && d.source === source)
-              return (
-                <div
-                  key={`${topic}-${source}`}
-                  className="h-12 rounded flex items-center justify-center text-white text-xs font-medium"
-                  style={{ backgroundColor: getBiasColor(dataPoint?.bias || 0) }}
-                  title={`${topic} - ${source}: ${((dataPoint?.bias || 0) * 100).toFixed(1)}% bias`}
-                >
-                  {((dataPoint?.bias || 0) * 100).toFixed(0)}%
-                </div>
-              )
-            })}
-          </div>
-        ))}
-      </div>
-
-      <div className="flex items-center justify-center space-x-4 text-sm">
-        <span>Low Bias</span>
-        <div className="flex space-x-1">
-          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#10b981" }}></div>
-          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#84cc16" }}></div>
-          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#eab308" }}></div>
-          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#f97316" }}></div>
-          <div className="w-4 h-4 rounded" style={{ backgroundColor: "#ef4444" }}></div>
-        </div>
-        <span>High Bias</span>
-      </div>
-    </div>
-  )
-}
+      <ResponsiveContainer width="100%" height={Math.max(400, data.length * 50)}> {/* Dynamic height based on number of sources */}
+        <BarChart
+            layout="vertical"
+            data={data}
+            margin={{
+              top: 20,
+              right: 30,
+              left: 80, // Increased left margin for source labels
+              bottom: 5,
+            }}
+        >
+          <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+          <XAxis type="number" domain={[0, 1]} tickFormatter={(value) => value.toFixed(1)} />
+          <YAxis dataKey="source" type="category" width={100} tickLine={false} axisLine={false} />
+          <Tooltip content={<CustomTooltip />} />
+          <Bar dataKey="averageBias" >
+            {data.map((entry, index) => (
+                <Bar key={`bar-${index}`} fill={getBarColor(entry.averageBias)} radius={[0, 4, 4, 0]} />
+            ))}
+            <LabelList dataKey="averageBias" position="right" formatter={(value: number) => value.toFixed(2)} />
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+  );
+};

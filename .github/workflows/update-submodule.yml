@@ -1,0 +1,24 @@
+name: Auto Update Submodule
+
+on:
+  repository_dispatch:
+    types: [update-submodule]
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main repo with submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull latest submodule commit
+        run: |
+          git submodule update --remote backend
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add backend
+          git commit -m "Auto-update submodule to latest commit" || echo "No changes to commit"
+          git push

@@ -1,3 +1,4 @@
 [submodule "backend"]
 	path = backend
 	url = https://github.com/Jefino9488/TruthGuard-Backend
+	branch = master

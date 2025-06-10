@@ -1,8 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { MongoClient, ServerApiVersion } from "mongodb"
 
-const uri =
-  "mongodb+srv://TruthGuard:TruthGuard@cluster0.dhlp73u.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+const uri = process.env.MONGODB_URI as string
+const dbName = process.env.MONGODB_DB as string
 
 const client = new MongoClient(uri, {
   serverApi: {
@@ -15,7 +15,7 @@ const client = new MongoClient(uri, {
 export async function GET(request: NextRequest) {
   try {
     await client.connect()
-    const database = client.db("truthguard")
+    const database = client.db(dbName)
     const collection = database.collection("articles")
 
     const searchParams = request.nextUrl.searchParams
@@ -63,6 +63,7 @@ export async function GET(request: NextRequest) {
     await client.close()
   }
 }
+
 
 async function getBiasTrends(collection: any) {
   return await collection

@@ -1,3 +1,4 @@
+// app/trends/page.tsx
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
@@ -8,11 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DateRangePicker } from "@/components/date-range-picker"
 import { Badge } from "@/components/ui/badge"
 import { TrendingUp, Filter, Download, Share2 } from "lucide-react"
-import { BiasTimeline } from "@/components/bias-timeline"
-import { TopicCluster } from "@/components/topic-cluster" // Keeping mock data for now
-import { SourceComparisonMatrix } from "@/components/source-comparison-matrix" // Keeping mock data for now
-import { NarrativeFlow } from "@/components/narrative-flow" // Keeping mock data for now
-import { MediaBubbleChart } from "@/components/media-bubble-chart" // Keeping mock data for now
+import { BiasTimeline } from "@/components/bias-timeline" // Still uses static data
+import { TopicCluster } from "@/components/topic-cluster" // Still uses static data
+import { SourceComparisonMatrix } from "@/components/source-comparison-matrix" // Still uses static data
+import { NarrativeFlow } from "@/components/narrative-flow" // Still uses static data
+import { MediaBubbleChart } from "@/components/media-bubble-chart" // Still uses static data
 import { Skeleton } from "@/components/ui/skeleton"
 import { SourceComparison } from "@/components/source-comparison"
 
@@ -30,7 +31,7 @@ export default function TrendsPage() {
       setLoading(true);
       try {
         // Fetch dashboard analytics from frontend API route, which proxies to backend
-        const response = await fetch("/api/mongodb-analytics?type=overview"); // Fetch overview analytics
+        const response = await fetch("/api/mongodb-analytics?type=overview"); // Request overview analytics
         const data = await response.json();
         if (data.success && data.data) {
           setAnalyticsData(data.data);
@@ -42,27 +43,30 @@ export default function TrendsPage() {
       }
     };
     fetchTrendsData();
-  }, [dateRange, selectedTopic]); // Refetch when filters change
+  }, [dateRange, selectedTopic]);
 
   // Data for BiasTimeline, adapted from backend's dashboard-analytics
   const biasTimelineData = useMemo(() => {
     if (!analyticsData?.biasDistribution) return [];
-    // The backend provides buckets (0, 0.3, 0.6). We'll map them to a simple trend.
-    // For a real timeline, backend would need to return time-series data.
     return analyticsData.biasDistribution.map((item: any) => {
-      let dateLabel = `Bucket ${item._id.toFixed(1)}`; // Simplified for current backend output
-      if (item._id === 0) dateLabel = "Low Bias";
-      else if (item._id === 0.3) dateLabel = "Medium Bias";
-      else if (item._id === 0.6) dateLabel = "High Bias";
+      const biasValue = parseFloat(item._id);
+      let dateLabel = isNaN(biasValue) ? "Unknown Bias" : `Bias ${biasValue.toFixed(1)}`;
+      if (biasValue === 0) dateLabel = "Very Low Bias";
+      else if (biasValue === 0.2) dateLabel = "Low Bias";
+      else if (biasValue === 0.4) dateLabel = "Moderate Bias";
+      else if (biasValue === 0.6) dateLabel = "High Bias";
+      else if (biasValue === 0.8) dateLabel = "Very High Bias";
 
       return {
         date: dateLabel,
-        leftBias: item.count / 2, // Simplified representation
-        rightBias: item.count / 2, // Simplified representation
-        neutralContent: 0, // Not directly available
+        biasValue, // For sorting
+        leftBias: item.count,
+        rightBias: 0,
+        neutralContent: 0,
       };
-    });
+    }).sort((a: any, b: any) => a.biasValue - b.biasValue);
   }, [analyticsData]);
+
 
   // Data for SourceComparisonMatrix, adapted from backend's dashboard-analytics
   const sourceComparisonMatrixData = useMemo(() => {
@@ -78,7 +82,7 @@ export default function TrendsPage() {
 
   return (
       <div className="min-h-screen bg-slate-50">
-        {/* Header */}
+        {/* Header (unchanged) */}
         <header className="border-b bg-white sticky top-0 z-50">
           <div className="container mx-auto px-4 py-4">
             <div className="flex items-center space-x-4">
@@ -92,7 +96,7 @@ export default function TrendsPage() {
         </header>
 
         <div className="container mx-auto px-4 py-8">
-          {/* Filters */}
+          {/* Filters (unchanged, but note topics from backend now) */}
           <Card className="mb-8">
             <CardHeader>
               <div className="flex flex-col md:flex-row md:items-center md:justify-between">
@@ -154,7 +158,7 @@ export default function TrendsPage() {
             </CardContent>
           </Card>
 
-          {/* Key Insights */}
+          {/* Key Insights (unchanged logic) */}
           {loading ? (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                 <Skeleton className="h-32 w-full" />
@@ -247,8 +251,7 @@ export default function TrendsPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="pt-4">
-                  {/* TopicCluster relies on specific node/link data not readily available from /dashboard-analytics */}
-                  {/* Backend would need an endpoint returning data structured for D3 force layout */}
+                  {/* TopicCluster still uses static data as backend doesn't provide d3-force data directly */}
                   <TopicCluster />
                 </CardContent>
               </Card>
@@ -263,9 +266,7 @@ export default function TrendsPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="pt-4">
-                  {/* SourceComparisonMatrix relies on specific topic-level data for each source,
-                    not directly available from /dashboard-analytics. */}
-                  {/* Adapting SourceComparison from components/source-comparison.tsx */}
+                  {/* SourceComparisonMatrix still uses static data. SourceComparison uses backend data. */}
                   {loading ? <Skeleton className="h-[400px] w-full" /> : <SourceComparison data={sourceComparisonMatrixData} />}
                 </CardContent>
               </Card>
@@ -280,8 +281,7 @@ export default function TrendsPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="pt-4">
-                  {/* NarrativeFlow relies on specific node/link data for Sankey diagram,
-                    not directly available from /dashboard-analytics. */}
+                  {/* NarrativeFlow still uses static data as backend doesn't provide sankey data directly */}
                   <NarrativeFlow />
                 </CardContent>
               </Card>
@@ -296,15 +296,14 @@ export default function TrendsPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="pt-4">
-                  {/* MediaBubbleChart relies on specific media source data (bias, reliability, reach),
-                    not directly available from /dashboard-analytics. */}
+                  {/* MediaBubbleChart still uses static data as backend doesn't provide this aggregate directly */}
                   <MediaBubbleChart />
                 </CardContent>
               </Card>
             </TabsContent>
           </Tabs>
 
-          {/* Insights and Predictions */}
+          {/* Insights and Predictions (unchanged logic, still using simplified data) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
             <Card>
               <CardHeader>
@@ -359,7 +358,7 @@ export default function TrendsPage() {
                                 <div className="mt-2 flex items-center">
                                   <span className="text-xs text-gray-500 mr-2">Confidence:</span>
                                   <div className="h-2 w-24 bg-gray-200 rounded-full">
-                                    <div className="h-2 w-[75%] bg-purple-600 rounded-full"></div> {/* Static confidence for now */}
+                                    <div className="h-2 w-[75%] bg-purple-600 rounded-full"></div>
                                   </div>
                                   <span className="text-xs text-gray-500 ml-2">75%</span>
                                 </div>

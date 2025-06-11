@@ -11,13 +11,43 @@ import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
-import { BrainCircuit, AlertTriangle, CheckCircle, Loader2, LinkIcon, FileText, Globe } from "lucide-react"
-import { SentimentAnalysis } from "@/components/sentiment-analysis" // These components might need to be re-evaluated to consume the new data structure
+import {
+  BrainCircuit,
+  AlertTriangle,
+  CheckCircle,
+  Loader2,
+  LinkIcon,
+  FileText,
+  Globe,
+  MessageCircle,
+  BarChart as LucideBarChart,
+  Info,
+  XCircle,
+  ExternalLink,
+  TrendingUp,
+  Users
+} from "lucide-react"
+import { SentimentAnalysis } from "@/components/sentiment-analysis"
 import { FactCheckResults } from "@/components/fact-check-results"
 import { BiasBreakdown } from "@/components/bias-breakdown"
 import { CredibilityScore } from "@/components/credibility-score"
 import { NarrativeAnalysis } from "@/components/narrative-analysis"
+import {
+  ResponsiveContainer,
+  BarChart,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Bar,
+  AreaChart,
+  Area,
+  defs,
+  linearGradient,
+  stop
+} from "recharts"
 
+// Updated AnalysisResult to match backend's AnalysisResponse Pydantic model
 interface AnalysisResult {
   bias_analysis: {
     overall_score: number;
@@ -60,7 +90,11 @@ interface AnalysisResult {
     primary_frame: string;
     secondary_frames: string[];
     narrative_patterns: string[];
-    actor_portrayal: Record<string, any>;
+    actor_portrayal: {
+      main_actor?: string;
+      tone?: string;
+      role?: string;
+    };
     perspective_diversity: number;
   };
   technical_analysis: {
@@ -78,12 +112,7 @@ interface AnalysisResult {
   };
   confidence: number;
   model_version: string;
-  // Add other fields that backend might return, like embeddings
-  content_embedding?: number[];
-  title_embedding?: number[];
-  analysis_embedding?: number[];
 }
-
 
 export default function AnalyzePage() {
   const [content, setContent] = useState("")
@@ -92,22 +121,22 @@ export default function AnalyzePage() {
   const [analysisComplete, setAnalysisComplete] = useState(false)
   const [analysisProgress, setAnalysisProgress] = useState(0)
   const [activeTab, setActiveTab] = useState("text")
-  const [analysisResults, setAnalysisResults] = useState<AnalysisResult | null>(null); // State to store backend analysis
-  const [articleMeta, setArticleMeta] = useState<any>(null); // State to store article meta from backend
+  const [analysisResults, setAnalysisResults] = useState<AnalysisResult | null>(null);
+  const [articleMeta, setArticleMeta] = useState<any>(null);
 
   const [advancedOptions, setAdvancedOptions] = useState({
     factCheck: true,
     sentimentAnalysis: true,
     narrativeDetection: true,
-    sourceCredibility: true, // This option might be handled by backend automatically
-    biasDetection: true, // This option might be handled by backend automatically
+    sourceCredibility: true,
+    biasDetection: true,
   })
 
   const handleAnalyze = async () => {
     const payload: { headline?: string; content?: string; url?: string } = {};
     if (activeTab === "text") {
       if (!content.trim()) return;
-      payload.headline = content.substring(0, 100); // Use first 100 chars as headline
+      payload.headline = content.substring(0, 100);
       payload.content = content;
     } else {
       if (!url.trim()) return;
@@ -120,7 +149,6 @@ export default function AnalyzePage() {
     setAnalysisResults(null);
     setArticleMeta(null);
 
-    // Simulate analysis progress
     const interval = setInterval(() => {
       setAnalysisProgress((prev) => {
         const newProgress = prev + Math.random() * 15
@@ -133,8 +161,8 @@ export default function AnalyzePage() {
     }, 600)
 
     try {
-      // Call the frontend API route, which will then call the backend
-      const response = await fetch("/api/mongodb", { // This endpoint now routes to backend's analyze-manual
+      // Calls frontend /api/mongodb, which then calls backend /analyze-manual
+      const response = await fetch("/api/mongodb", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -155,9 +183,8 @@ export default function AnalyzePage() {
       console.error("Error during analysis:", error);
       alert("An unexpected error occurred during analysis.");
     } finally {
-      // Ensure progress reaches 100% and then stops
       setAnalysisProgress(100);
-      setTimeout(() => { // Small delay to allow progress bar to fill
+      setTimeout(() => {
         setIsAnalyzing(false);
         setAnalysisComplete(true);
       }, 500);
@@ -173,13 +200,12 @@ export default function AnalyzePage() {
     setArticleMeta(null);
   }
 
-  // Helper for component data, assuming the structure from AnalysisResult
+  // Ensure these components receive the correct parts of analysisResults
   const biasBreakdownData = analysisResults?.bias_analysis;
   const factCheckResultsData = analysisResults?.misinformation_analysis;
   const sentimentAnalysisData = analysisResults?.sentiment_analysis;
   const narrativeAnalysisData = analysisResults?.narrative_analysis;
   const credibilityScoreData = analysisResults?.credibility_assessment?.overall_score;
-
 
   return (
       <div className="min-h-screen bg-slate-50">
@@ -508,19 +534,19 @@ export default function AnalyzePage() {
                       </TabsList>
 
                       <TabsContent value="bias" className="mt-6">
-                        {biasBreakdownData && <BiasBreakdown />}
+                        {biasBreakdownData && <BiasBreakdown data={biasBreakdownData} />}
                       </TabsContent>
 
                       <TabsContent value="facts" className="mt-6">
-                        {factCheckResultsData && <FactCheckResults />}
+                        {factCheckResultsData && <FactCheckResults data={factCheckResultsData} />}
                       </TabsContent>
 
                       <TabsContent value="sentiment" className="mt-6">
-                        {sentimentAnalysisData && <SentimentAnalysis />}
+                        {sentimentAnalysisData && <SentimentAnalysis data={sentimentAnalysisData} />}
                       </TabsContent>
 
                       <TabsContent value="narrative" className="mt-6">
-                        {narrativeAnalysisData && <NarrativeAnalysis />}
+                        {narrativeAnalysisData && <NarrativeAnalysis data={narrativeAnalysisData} />}
                       </TabsContent>
 
                       <TabsContent value="sources" className="mt-6">
@@ -532,7 +558,7 @@ export default function AnalyzePage() {
                           <CardContent>
                             <div className="space-y-6">
                               <div className="space-y-4">
-                                {[ // This part is still mocked. For real data, backend would need to return cited sources.
+                                {[
                                   {
                                     name: articleMeta?.source || "Analyzed Source",
                                     url: articleMeta?.url || "N/A",
@@ -579,7 +605,7 @@ export default function AnalyzePage() {
                                                   ? "border-green-600 text-green-600"
                                                   : source.bias.includes("Left") || source.bias.includes("Right")
                                                       ? "border-yellow-600 text-yellow-600"
-                                                      : "border-red-600 text-red-600" // Fallback to red for any other strong bias
+                                                      : "border-red-600 text-red-600"
                                             }
                                         >
                                           {source.bias}
@@ -647,6 +673,636 @@ export default function AnalyzePage() {
             </div>
           </div>
         </div>
+      </div>
+  );
+}
+
+// Data interfaces for components
+interface BiasBreakdownProps {
+  data: AnalysisResult['bias_analysis'];
+}
+interface FactCheckResultsProps {
+  data: AnalysisResult['misinformation_analysis'];
+}
+interface SentimentAnalysisProps {
+  data: AnalysisResult['sentiment_analysis'];
+}
+interface NarrativeAnalysisProps {
+  data: AnalysisResult['narrative_analysis'];
+}
+
+export function BiasBreakdown({ data }: BiasBreakdownProps) {
+  const biasCategories = [
+    { name: "Overall Bias", score: data.overall_score * 100, description: "Overall bias score" },
+    { name: "Language Bias", score: data.language_bias * 100, description: "Bias in language choices" },
+    { name: "Source Bias", score: data.source_bias * 100, description: "Bias from selected sources" },
+    { name: "Framing Bias", score: data.framing_bias * 100, description: "How information is presented" },
+    { name: "Selection Bias", score: data.selection_bias * 100, description: "Selective inclusion/exclusion of info" },
+    { name: "Confirmation Bias", score: data.confirmation_bias * 100, description: "Reinforcing existing beliefs" },
+  ];
+
+  const biasIndicators = [
+    { category: "Bias Indicators", indicators: data.bias_indicators.map(indicator => ({ text: indicator, frequency: 1, severity: "medium" })) }
+  ];
+
+  const politicalLeaningData = [
+    { viewpoint: data.political_leaning || "Neutral", score: data.overall_score * 100 },
+  ];
+
+  const getBiasColor = (score: number) => {
+    if (score < 40) return "text-green-600";
+    if (score < 70) return "text-yellow-600";
+    return "text-red-600";
+  };
+
+  const getBiasLevel = (score: number) => {
+    if (score < 40) return "Low";
+    if (score < 70) return "Moderate";
+    return "High";
+  };
+
+  const getSeverityColor = (severity: string) => {
+    switch (severity) {
+      case "low": return "bg-green-100 text-green-800";
+      case "medium": return "bg-yellow-100 text-yellow-800";
+      case "high": return "bg-red-100 text-red-800";
+      default: return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const overallBiasScore = data.overall_score * 100;
+
+  return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Bias Analysis</CardTitle>
+            <CardDescription>Detailed breakdown of bias patterns and indicators</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Overall Bias Score */}
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between p-4 bg-gray-50 rounded-lg">
+              <div>
+                <h3 className="text-sm font-medium text-gray-500 mb-1">Overall Bias Score</h3>
+                <div className={`text-3xl font-bold ${getBiasColor(overallBiasScore)}`}>
+                  {getBiasLevel(overallBiasScore)}
+                </div>
+                <div className="text-sm text-gray-500">{overallBiasScore.toFixed(1)}%</div>
+              </div>
+              <div className="mt-4 md:mt-0 md:w-64">
+                <Progress value={overallBiasScore} className="h-2" />
+                <div className="flex justify-between text-xs mt-1">
+                  <span>Minimal Bias</span>
+                  <span>Extreme Bias</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Bias Categories */}
+            <div>
+              <h3 className="text-sm font-medium mb-4">Bias Categories</h3>
+              <div className="space-y-3">
+                {biasCategories.map((category) => (
+                    <div key={category.name} className="space-y-1">
+                      <div className="flex justify-between text-sm">
+                        <div className="flex items-center">
+                          <span className="font-medium">{category.name}</span>
+                          <span className="text-xs text-gray-500 ml-2">({category.description})</span>
+                        </div>
+                        <span className={getBiasColor(category.score)}>{category.score.toFixed(1)}%</span>
+                      </div>
+                      <Progress value={category.score} className="h-2" />
+                    </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Political Leaning */}
+            <div>
+              <h3 className="text-sm font-medium mb-4">Political Leaning Analysis</h3>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                      data={politicalLeaningData}
+                      layout="vertical"
+                      margin={{ top: 5, right: 30, left: 80, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                    <XAxis type="number" domain={[0, 100]} />
+                    <YAxis dataKey="viewpoint" type="category" width={80} />
+                    <Tooltip formatter={(value: number) => [`${value.toFixed(1)}%`, "Score"]} />
+                    <Bar dataKey="score" fill="#3b82f6" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Bias Indicators */}
+            <div>
+              <h3 className="text-sm font-medium mb-4">Detected Bias Indicators</h3>
+              <Tabs defaultValue={biasIndicators[0]?.category || "Language"}>
+                <TabsList className="grid grid-cols-3">
+                  {biasIndicators.map((cat, idx) => <TabsTrigger key={idx} value={cat.category}>{cat.category}</TabsTrigger>)}
+                </TabsList>
+                {biasIndicators.map((category, catIndex) => (
+                    <TabsContent key={catIndex} value={category.category} className="mt-4">
+                      <div className="space-y-3">
+                        {category.indicators.map((indicator, index) => (
+                            <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                              <div className="flex items-center space-x-2">
+                                <AlertTriangle
+                                    className={`h-4 w-4 ${indicator.severity === "high" ? "text-red-500" : indicator.severity === "medium" ? "text-yellow-500" : "text-green-500"}`}
+                                />
+                                <span>{indicator.text}</span>
+                              </div>
+                              <div className="flex items-center space-x-3">
+                          <span className="text-sm text-gray-500">
+                            Found {indicator.frequency} {indicator.frequency === 1 ? "time" : "times"}
+                          </span>
+                                <Badge className={getSeverityColor(indicator.severity)}>
+                                  {indicator.severity.charAt(0).toUpperCase() + indicator.severity.slice(1)}
+                                </Badge>
+                              </div>
+                            </div>
+                        ))}
+                      </div>
+                    </TabsContent>
+                ))}
+              </Tabs>
+            </div>
+
+            {/* Methodology Note */}
+            <div className="p-4 border rounded-lg bg-blue-50 border-blue-200">
+              <div className="flex items-start space-x-3">
+                <Info className="h-5 w-5 text-blue-600 mt-0.5" />
+                <div>
+                  <h3 className="font-medium text-blue-800">Bias Detection Methodology</h3>
+                  <p className="mt-1 text-sm text-blue-800">
+                    Our AI analyzes multiple dimensions of bias including language patterns, framing techniques, source
+                    selection, and narrative structure. The analysis is based on a comprehensive model trained on diverse
+                    media content.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+  );
+}
+
+export function FactCheckResults({ data }: FactCheckResultsProps) {
+  const factChecks = data.fact_checks.map(fc => ({
+    claim: fc.claim,
+    verdict: fc.verdict,
+    confidence: fc.confidence * 100,
+    explanation: fc.explanation,
+    sources: fc.sources,
+  }));
+
+  const redFlags = data.red_flags;
+  const logicalFallacies = data.logical_fallacies;
+
+  const getVerdictColor = (verdict: string) => {
+    switch (verdict) {
+      case "True": return "bg-green-100 text-green-800";
+      case "Partially True": return "bg-yellow-100 text-yellow-800";
+      case "Misleading": return "bg-orange-100 text-orange-800";
+      case "False": return "bg-red-100 text-red-800";
+      default: return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const getVerdictIcon = (verdict: string) => {
+    switch (verdict) {
+      case "True": return <CheckCircle className="h-5 w-5 text-green-600" />;
+      case "Partially True": return <AlertTriangle className="h-5 w-5 text-yellow-600" />;
+      case "Misleading": return <AlertTriangle className="h-5 w-5 text-orange-600" />;
+      case "False": return <XCircle className="h-5 w-5 text-red-600" />;
+      default: return <Info className="h-5 w-5 text-gray-600" />;
+    }
+  };
+
+  const totalClaims = factChecks.length;
+  const trueClaims = factChecks.filter((check) => check.verdict === "True").length;
+  const partiallyTrueClaims = factChecks.filter((check) => check.verdict === "Partially True").length;
+  const accuracyScore = totalClaims > 0 ? Math.round(((trueClaims + partiallyTrueClaims * 0.5) / totalClaims) * 100) : 100;
+
+  return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Fact Check Results</CardTitle>
+            <CardDescription>Verification of key claims against reliable sources</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Overall Accuracy */}
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between p-4 bg-gray-50 rounded-lg">
+              <div>
+                <h3 className="text-sm font-medium text-gray-500 mb-1">Overall Factual Accuracy</h3>
+                <div className="text-3xl font-bold text-blue-600">{accuracyScore}%</div>
+                <div className="text-sm text-gray-500">
+                  {totalClaims} claims analyzed • {trueClaims} verified true
+                </div>
+              </div>
+              <div className="mt-4 md:mt-0 md:w-64">
+                <Progress value={accuracyScore} className="h-2" />
+                <div className="flex justify-between text-xs mt-1">
+                  <span>Low Accuracy</span>
+                  <span>High Accuracy</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Individual Claims */}
+            <div className="space-y-4">
+              {factChecks.length > 0 ? factChecks.map((check, index) => (
+                  <Card key={index}>
+                    <CardContent className="p-4">
+                      <div className="flex items-start space-x-4">
+                        <div className="mt-1">{getVerdictIcon(check.verdict)}</div>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="font-medium">Claim:</h4>
+                            <Badge className={getVerdictColor(check.verdict)}>{check.verdict}</Badge>
+                          </div>
+                          <p className="text-gray-800 mb-3">"{check.claim}"</p>
+                          <div className="mb-3">
+                            <h4 className="text-sm font-medium mb-1">Fact Check:</h4>
+                            <p className="text-sm text-gray-600">{check.explanation}</p>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-1 text-xs text-gray-500">
+                              <span>Confidence:</span>
+                              <span className="font-medium">{check.confidence}%</span>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              {check.sources.map((source, i) => (
+                                  <Button key={i} variant="ghost" size="sm" className="h-7 text-xs">
+                                    <ExternalLink className="h-3 w-3 mr-1" />
+                                    {source}
+                                  </Button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+              )) : (
+                  <div className="text-center text-gray-500 py-4">No specific claims found for fact-checking.</div>
+              )}
+            </div>
+
+            {/* Red Flags & Logical Fallacies */}
+            {(redFlags.length > 0 || logicalFallacies.length > 0) && (
+                <div className="p-4 border rounded-lg bg-red-50 border-red-200">
+                  <div className="flex items-start space-x-3">
+                    <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5" />
+                    <div>
+                      <h3 className="font-medium text-red-800">Detected Red Flags & Fallacies</h3>
+                      <ul className="mt-1 text-sm text-red-800 space-y-1">
+                        {redFlags.map((flag, idx) => <li key={`rf-${idx}`}>• Red Flag: {flag}</li>)}
+                        {logicalFallacies.map((fallacy, idx) => <li key={`lf-${idx}`}>• Fallacy: {fallacy}</li>)}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+            )}
+
+            {/* Methodology Note */}
+            <div className="p-4 border rounded-lg bg-blue-50 border-blue-200">
+              <div className="flex items-start space-x-3">
+                <Info className="h-5 w-5 text-blue-600 mt-0.5" />
+                <div>
+                  <h3 className="font-medium text-blue-800">Fact-Checking Methodology</h3>
+                  <p className="mt-1 text-sm text-blue-800">
+                    Claims are verified against multiple authoritative sources using our AI-powered cross-referencing
+                    system. Each claim is evaluated for context, accuracy, and potential omissions.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+  );
+}
+
+export function SentimentAnalysis({ data }: SentimentAnalysisProps) {
+  const sentimentData = [
+    { segment: 1, sentiment: data.overall_sentiment },
+  ];
+
+  const emotionData = [
+    { emotion: data.emotional_tone || "neutral", score: 100 },
+  ];
+
+  const keyPhrases = data.key_phrases.map(phrase => ({
+    text: phrase,
+    sentiment: "neutral",
+    frequency: 1,
+  }));
+
+  const overallSentiment = data.overall_sentiment;
+
+  const getSentimentColor = (sentiment: number) => {
+    if (sentiment > 0.2) return "text-green-600";
+    if (sentiment > -0.2) return "text-yellow-600";
+    return "text-red-600";
+  };
+
+  const getSentimentLabel = (sentiment: number) => {
+    if (sentiment > 0.2) return "Positive";
+    if (sentiment > -0.2) return "Neutral";
+    return "Negative";
+  };
+
+  const getEmotionColor = (emotion: string) => {
+    switch (emotion.toLowerCase()) {
+      case "anger": return "bg-red-600";
+      case "fear": return "bg-purple-600";
+      case "sadness": return "bg-blue-600";
+      case "joy": return "bg-green-600";
+      case "surprise": return "bg-yellow-600";
+      case "disgust": return "bg-orange-600";
+      default: return "bg-gray-600";
+    }
+  };
+
+  const getPhraseColor = (sentiment: string) => {
+    switch (sentiment) {
+      case "positive": return "bg-green-100 text-green-800";
+      case "negative": return "bg-red-100 text-red-800";
+      default: return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Sentiment Analysis</CardTitle>
+            <CardDescription>Emotional tone and sentiment patterns throughout the content</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Overall Sentiment */}
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between p-4 bg-gray-50 rounded-lg">
+              <div>
+                <h3 className="text-sm font-medium text-gray-500 mb-1">Overall Sentiment</h3>
+                <div className={`text-3xl font-bold ${getSentimentColor(overallSentiment)}`}>
+                  {getSentimentLabel(overallSentiment)}
+                </div>
+                <div className="text-sm text-gray-500">Score: {(overallSentiment * 100).toFixed(0)}%</div>
+              </div>
+              <div className="mt-4 md:mt-0">
+                <div className="w-full md:w-64 h-4 bg-gradient-to-r from-red-500 via-yellow-500 to-green-500 rounded-full relative">
+                  <div
+                      className="absolute w-3 h-6 bg-black rounded-full top-1/2 transform -translate-y-1/2"
+                      style={{ left: `${((overallSentiment + 1) / 2) * 100}%` }}
+                  ></div>
+                </div>
+                <div className="flex justify-between text-xs mt-1">
+                  <span>Negative</span>
+                  <span>Neutral</span>
+                  <span>Positive</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Sentiment Flow */}
+            <div>
+              <h3 className="text-sm font-medium mb-4">Sentiment Flow Throughout Content</h3>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart
+                      data={sentimentData}
+                      margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="segment" label={{ value: "Content Segments", position: "insideBottom", offset: -5 }} />
+                    <YAxis domain={[-1, 1]} label={{ value: "Sentiment", angle: -90, position: "insideLeft" }} ticks={[-1, -0.5, 0, 0.5, 1]} />
+                    <Tooltip
+                        formatter={(value: number) => [`Sentiment: ${value.toFixed(2)}`, "Score"]}
+                        labelFormatter={(label) => `Segment ${label}`}
+                    />
+                    <defs>
+                      <linearGradient id="sentimentGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
+                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.2} />
+                      </linearGradient>
+                    </defs>
+                    <Area type="monotone" dataKey="sentiment" stroke="#3b82f6" fillOpacity={1} fill="url(#sentimentGradient)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Emotion Analysis */}
+            <div>
+              <h3 className="text-sm font-medium mb-4">Emotion Distribution</h3>
+              <div className="space-y-3">
+                {emotionData.map((item) => (
+                    <div key={item.emotion} className="space-y-1">
+                      <div className="flex justify-between text-sm">
+                        <span>{item.emotion}</span>
+                        <span>{item.score}%</span>
+                      </div>
+                      <Progress value={item.score} className={`h-2 ${getEmotionColor(item.emotion)}`} />
+                    </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Key Phrases */}
+            <div>
+              <h3 className="text-sm font-medium mb-4">Key Sentiment Phrases</h3>
+              <div className="flex flex-wrap gap-2">
+                {keyPhrases.map((phrase, index) => (
+                    <div key={index} className="flex items-center">
+                      <Badge className={getPhraseColor(phrase.sentiment)}>
+                        {phrase.text} {phrase.frequency > 1 && `(${phrase.frequency})`}
+                      </Badge>
+                    </div>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+  );
+}
+
+export function NarrativeAnalysis({ data }: NarrativeAnalysisProps) {
+  const narrativeFrames = [
+    {
+      name: data.primary_frame,
+      strength: 100,
+      description: "Dominant narrative frame detected.",
+      examples: data.narrative_patterns || [],
+    },
+    ...data.secondary_frames.map(frame => ({
+      name: frame,
+      strength: 50,
+      description: "Secondary narrative frame detected.",
+      examples: [],
+    })),
+  ];
+
+  const keyActors = [
+    {
+      name: data.actor_portrayal.main_actor || "N/A",
+      portrayal: data.actor_portrayal.tone || "neutral",
+      frequency: 1,
+      examples: [data.actor_portrayal.role || ""],
+    },
+  ];
+
+  const narrativePatterns = data.narrative_patterns.map(pattern => ({
+    pattern: pattern,
+    description: `Detected pattern: ${pattern}`,
+    strength: 70,
+  }));
+
+  const getPortrayalColor = (portrayal: string) => {
+    switch (portrayal.toLowerCase()) {
+      case "positive": return "bg-green-100 text-green-800";
+      case "negative": return "bg-red-100 text-red-800";
+      case "sympathetic": return "bg-blue-100 text-blue-800";
+      default: return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const getStrengthColor = (strength: number) => {
+    if (strength < 40) return "text-green-600";
+    if (strength < 70) return "text-yellow-600";
+    return "text-red-600";
+  };
+
+  return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Narrative Analysis</CardTitle>
+            <CardDescription>How the content frames issues and constructs narratives</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Dominant Narrative Frames */}
+            <div>
+              <h3 className="text-sm font-medium mb-4">Dominant Narrative Frames</h3>
+              <div className="space-y-4">
+                {narrativeFrames.length > 0 ? narrativeFrames.map((frame) => (
+                    <div key={frame.name} className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <h4 className="font-medium">{frame.name}</h4>
+                          <p className="text-sm text-gray-600">{frame.description}</p>
+                        </div>
+                        <span className={`font-bold ${getStrengthColor(frame.strength)}`}>{frame.strength}%</span>
+                      </div>
+                      <Progress value={frame.strength} className="h-2" />
+                      <div className="pt-1">
+                        <p className="text-xs text-gray-500">Examples: {frame.examples.join("; ")}</p>
+                      </div>
+                    </div>
+                )) : (
+                    <div className="text-center text-gray-500 py-4">No narrative frames detected.</div>
+                )}
+              </div>
+            </div>
+
+            {/* Narrative Patterns and Actors */}
+            <Tabs defaultValue="patterns" className="mt-6">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="patterns">
+                  <TrendingUp className="h-4 w-4 mr-2" />
+                  Narrative Patterns
+                </TabsTrigger>
+                <TabsTrigger value="actors">
+                  <Users className="h-4 w-4 mr-2" />
+                  Key Actors
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="patterns" className="mt-4">
+                <div className="space-y-4">
+                  {narrativePatterns.length > 0 ? narrativePatterns.map((pattern) => (
+                      <div key={pattern.pattern} className="p-4 border rounded-lg">
+                        <div className="flex justify-between items-center mb-2">
+                          <h4 className="font-medium">{pattern.pattern}</h4>
+                          <Badge
+                              className={
+                                pattern.strength > 70
+                                    ? "bg-red-100 text-red-800"
+                                    : pattern.strength > 50
+                                        ? "bg-yellow-100 text-yellow-800"
+                                        : "bg-green-100 text-green-800"
+                              }
+                          >
+                            {pattern.strength}% Strength
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-gray-600">{pattern.description}</p>
+                      </div>
+                  )) : (
+                      <div className="text-center text-gray-500 py-4">No narrative patterns detected.</div>
+                  )}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="actors" className="mt-4">
+                <div className="space-y-4">
+                  {keyActors.length > 0 ? keyActors.map((actor) => (
+                      <div key={actor.name} className="p-4 border rounded-lg">
+                        <div className="flex justify-between items-center mb-2">
+                          <h4 className="font-medium">{actor.name}</h4>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm text-gray-500">Mentioned {actor.frequency} times</span>
+                            <Badge className={getPortrayalColor(actor.portrayal)}>
+                              {actor.portrayal.charAt(0).toUpperCase() + actor.portrayal.slice(1)} Portrayal
+                            </Badge>
+                          </div>
+                        </div>
+                        <p className="text-sm text-gray-600">Examples: {actor.examples.join("; ")}</p>
+                      </div>
+                  )) : (
+                      <div className="text-center text-gray-500 py-4">No key actors detected.</div>
+                  )}
+                </div>
+              </TabsContent>
+            </Tabs>
+
+            {/* Narrative Impact */}
+            <div className="p-4 border rounded-lg bg-amber-50 border-amber-200">
+              <div className="flex items-start space-x-3">
+                <MessageCircle className="h-5 w-5 text-amber-600 mt-0.5" />
+                <div>
+                  <h3 className="font-medium text-amber-800">Narrative Impact</h3>
+                  <p className="mt-1 text-sm text-amber-800">
+                    This content primarily uses an economic impact frame with elements of political conflict. The
+                    narrative structure emphasizes problems and conflicts, potentially leading readers to view the issue
+                    through a partisan lens rather than considering multiple perspectives.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Methodology Note */}
+            <div className="p-4 border rounded-lg bg-blue-50 border-blue-200">
+              <div className="flex items-start space-x-3">
+                <Info className="h-5 w-5 text-blue-600 mt-0.5" />
+                <div>
+                  <h3 className="font-medium text-blue-800">Narrative Analysis Methodology</h3>
+                  <p className="mt-1 text-sm text-blue-800">
+                    Our AI identifies narrative frames, actor portrayals, and storytelling patterns using advanced NLP
+                    techniques. This analysis helps reveal how information is structured to influence reader perception
+                    beyond simple bias detection.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
   );
 }

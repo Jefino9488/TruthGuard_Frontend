@@ -1,3 +1,4 @@
+// app/api/mongodb-datasets/route.ts
 import { type NextRequest, NextResponse } from "next/server";
 import { MongoClient, ServerApiVersion } from "mongodb";
 
@@ -25,8 +26,6 @@ export async function GET(request: NextRequest) {
     let results = [];
     let datasetInfo = {};
 
-    // Note: These functions for sample datasets are kept local to the frontend API
-    // as the backend's core focus is TruthGuard's article data.
     switch (dataset) {
       case "sample_mflix":
         results = await analyzeMovieDataset(limit, analysis_type);
@@ -470,7 +469,7 @@ async function analyzeTruthGuardDataset(limit: number, analysisType: string) {
     {
       $match: {
         content: { $exists: true },
-        ai_analysis: { $exists: true }, // Changed from 'analysis' to 'ai_analysis' to match backend schema
+        ai_analysis: { $exists: true },
       },
     },
     {
@@ -484,7 +483,7 @@ async function analyzeTruthGuardDataset(limit: number, analysisType: string) {
             default: "low_bias",
           },
         },
-        misinformation_risk_category: { // Renamed to avoid conflict with field name in collection
+        misinformation_risk_category: {
           $switch: {
             branches: [
               { case: { $gte: ["$ai_analysis.misinformation_analysis.risk_score", 0.7] }, then: "high_risk" },
@@ -493,6 +492,8 @@ async function analyzeTruthGuardDataset(limit: number, analysisType: string) {
             default: "low_risk",
           },
         },
+        // Add a default for viral_score if it might be missing
+        viral_score_exists: { $ne: ["$ai_analysis.viral_prediction.viral_score", null] }
       },
     },
     {
@@ -500,12 +501,21 @@ async function analyzeTruthGuardDataset(limit: number, analysisType: string) {
         _id: {
           source: "$source",
           bias_category: "$bias_category",
-          risk_level: "$misinformation_risk_category", // Use new field name
+          risk_level: "$misinformation_risk_category",
         },
         count: { $sum: 1 },
         avg_bias: { $avg: "$ai_analysis.bias_analysis.overall_score" },
         avg_credibility: { $avg: "$ai_analysis.credibility_assessment.overall_score" },
-        avg_viral_potential: { $avg: "$ai_analysis.viral_prediction.viral_score" }, // Assuming this field exists in backend analysis
+        // Use $cond to only include if viral_score exists, else default to 0
+        avg_viral_potential: {
+          $avg: {
+            $cond: {
+              if: "$viral_score_exists",
+              then: "$ai_analysis.viral_prediction.viral_score",
+              else: 0 // Default value if viral_score doesn't exist
+            }
+          }
+        },
         sample_articles: { $push: "$title" },
       },
     },
@@ -577,8 +587,6 @@ export async function POST(request: NextRequest) {
     let analysisResults = [];
 
     if (custom_analysis) {
-      // In a real application, this would call the backend's custom analysis endpoint
-      // For this hackathon, we simulate or reuse generic analysis through the main backend /analyze-manual endpoint.
       const dummyContent = `Custom analysis for dataset: ${dataset}, type: ${custom_analysis}. Using AI model: ${ai_model}.`;
       const backendAnalyzeResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/analyze-manual`, {
         method: "POST",

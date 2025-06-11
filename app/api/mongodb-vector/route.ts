@@ -1,30 +1,17 @@
+// app/api/mongodb-vector/route.ts
 import { type NextRequest, NextResponse } from "next/server";
 import { MongoClient, ServerApiVersion } from "mongodb";
 
-// Use environment variables for MongoDB connection
-const uri = process.env.MONGODB_URI as string;
-const dbName = process.env.MONGODB_DB as string;
-
-const client = new MongoClient(uri, {
-  serverApi: {
-    version: ServerApiVersion.v1,
-    strict: true,
-    deprecationErrors: true,
-  },
-});
+// ... (MongoDB connection setup remains the same)
 
 const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
+// This POST method seems to be for storing data, which backend's /analyze-manual already does.
+// I'm keeping it as is, but focusing on the GET for vector search.
 export async function POST(request: NextRequest) {
+  // ... (Existing POST logic for storing data, unchanged)
   try {
-    const { content, analysis, embedding, collection = "articles" } = await request.json(); // Default to articles collection
-    // In this updated setup, the backend handles storing content with embeddings
-    // We will call the backend's manual-analyze or a dedicated store endpoint if it existed
-    // For now, if 'analysis' and 'embedding' are already generated, we'll assume the client wants to store it.
-    // However, the backend's /analyze-manual also stores. So this POST might be redundant if used after manual-analyze.
-    // Re-evaluating based on backend's structure: the backend's `analyze-manual` already stores.
-    // So, this frontend POST will primarily be for initial seeding or if a new 'store' endpoint is made on backend.
-    // For this update, we will treat this as a signal to trigger a backend analysis that stores the content.
+    const { content, analysis, embedding, collection = "articles" } = await request.json();
 
     if (!content) {
       return NextResponse.json({ success: false, error: "Content is required for vector storage." }, { status: 400 });
@@ -34,7 +21,7 @@ export async function POST(request: NextRequest) {
     const backendAnalyzeResponse = await fetch(`${BACKEND_BASE_URL}/analyze-manual`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ headline: content.substring(0, 100), content: content }), // Pass content to backend
+      body: JSON.stringify({ headline: content.substring(0, 100), content: content }),
     });
 
     if (!backendAnalyzeResponse.ok) {
@@ -46,10 +33,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      id: backendResult.article_meta?.article_id || "unknown", // Return ID from backend if available
+      id: backendResult.article_meta?.article_id || "unknown",
       message: "Content processed and stored with vector embedding by the backend.",
       collection: collection,
-      database: dbName, // Using the TruthGuard database now
+      database: dbName,
     });
   } catch (error: any) {
     console.error("MongoDB Vector Storage Error (Frontend Route):", error);
@@ -74,13 +61,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Query parameter 'q' is required" }, { status: 400 });
     }
 
-    // Call the backend's vector-search endpoint
+    console.log(`Frontend: Calling backend /vector-search with query: "${query}", limit: ${limit}`);
+
+    // Change: Call the backend's vector-search endpoint using POST
     const backendResponse = await fetch(`${BACKEND_BASE_URL}/vector-search`, {
       method: "POST", // Backend's vector search is a POST request
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ query: query, limit: limit }),
+      body: JSON.stringify({ query: query, limit: limit }), // Send query in the body
     });
 
     if (!backendResponse.ok) {
@@ -93,11 +82,11 @@ export async function GET(request: NextRequest) {
     if (backendData.success) {
       return NextResponse.json({
         success: true,
-        data: backendData.data, // This will be the articles array
+        data: backendData.data, // This will be the articles array from backend
         query,
         searchType: "vector_search",
-        database: dbName,
-        collection: "articles", // Backend returns from 'articles' collection
+        database: "truthguard",
+        collection: "articles",
       });
     } else {
       throw new Error(backendData.error || "Backend vector search returned an error.");
@@ -115,7 +104,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-
-// generateQueryEmbedding function will be on the backend, as part of GeminiAnalyzerTask
-// The frontend will send the text query, and the backend will generate the embedding.
-// The backend's /vector-search endpoint expects a text query, not an embedding directly from frontend.

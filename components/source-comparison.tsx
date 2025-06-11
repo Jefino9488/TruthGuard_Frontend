@@ -78,23 +78,23 @@ export const SourceComparison: React.FC<SourceComparisonProps> = ({ data }) => {
                         <TableRow key={index}>
                             <TableCell className="font-medium">{item.source}</TableCell>
                             <TableCell>{item.articleCount}</TableCell>
-                            <TableCell>{item.averageBias.toFixed(2)}</TableCell>
+                            <TableCell>{item.averageBias != null ? item.averageBias.toFixed(2) : "N/A"}</TableCell>
                             <TableCell>
-                                <Badge className={`${getBiasLabelAndColor(item.averageBias).color} text-white`}>
-                                    {getBiasLabelAndColor(item.averageBias).label}
+                                <Badge className={`${getBiasLabelAndColor(item.averageBias ?? 0.5).color} text-white`}>
+                                    {getBiasLabelAndColor(item.averageBias ?? 0.5).label}
                                 </Badge>
                             </TableCell>
                             <TableCell>
-                                <Badge className={`${getMisinformationLabelAndColor(item.averageMisinformationRisk).color} text-white`}>
-                                    {getMisinformationLabelAndColor(item.averageMisinformationRisk).label}
+                                <Badge className={`${getMisinformationLabelAndColor(item.averageMisinformationRisk ?? 0).color} text-white`}>
+                                    {getMisinformationLabelAndColor(item.averageMisinformationRisk ?? 0).label}
                                 </Badge>
-                                ({item.averageMisinformationRisk.toFixed(2)})
+                                ({item.averageMisinformationRisk != null ? item.averageMisinformationRisk.toFixed(2) : "N/A"})
                             </TableCell>
                             <TableCell>
-                                <Badge className={`${getCredibilityLabelAndColor(item.averageCredibility).color} text-white`}>
-                                    {getCredibilityLabelAndColor(item.averageCredibility).label}
+                                <Badge className={`${getCredibilityLabelAndColor(item.averageCredibility ?? 0).color} text-white`}>
+                                    {getCredibilityLabelAndColor(item.averageCredibility ?? 0).label}
                                 </Badge>
-                                ({item.averageCredibility.toFixed(2)})
+                                ({item.averageCredibility != null ? item.averageCredibility.toFixed(2) : "N/A"})
                             </TableCell>
                         </TableRow>
                     ))}

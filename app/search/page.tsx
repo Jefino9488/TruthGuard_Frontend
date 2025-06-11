@@ -1,3 +1,4 @@
+// app/search/page.tsx
 "use client"
 
 import { useState } from "react"
@@ -10,22 +11,25 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Search, ExternalLink, Loader2 } from "lucide-react"
 
 interface Article {
-  _id: string; // Use _id from MongoDB
+  _id: string;
   title: string;
   source: string;
   bias_score: number;
   misinformation_risk: number;
-  topic?: string; // Optional, backend might provide category
-  published_at?: string; // ISO string for date
-  content?: string; // Full content for summary
+  topic?: string;
+  published_at?: string;
+  content?: string;
   url?: string;
-  vectorSearchScore?: number; // From vector search results
+  vectorSearchScore?: number;
+  // Add other fields that might be returned by vector search
+  ai_analysis?: any; // To get nested analysis data
+  credibility_score?: number;
 }
 
 export default function SearchPage() {
   const [searchQuery, setSearchQuery] = useState("")
-  const [selectedTopic, setSelectedTopic] = useState("all")
-  const [selectedSource, setSelectedSource] = useState("all")
+  const [selectedTopic, setSelectedTopic] = useState("all") // Frontend filter, backend currently doesn't support this on vector search
+  const [selectedSource, setSelectedSource] = useState("all") // Frontend filter, backend currently doesn't support this on vector search
   const [filteredArticles, setFilteredArticles] = useState<Article[]>([])
   const [loading, setLoading] = useState(false)
   const [totalResults, setTotalResults] = useState(0)
@@ -36,36 +40,34 @@ export default function SearchPage() {
     setTotalResults(0);
 
     try {
-      let url = `/api/mongodb-vector?q=${encodeURIComponent(searchQuery)}`; // Use vector search API route
-
-      // Add filters if selected (backend needs to support these)
-      // Note: Current backend /vector-search only takes `query` and `limit`.
-      // For topic/source filtering, backend's /articles/search might be better,
-      // or enhance /vector-search on backend to accept filters.
-      // For now, these frontend filters will not be applied to vector search.
-      // For search against text index: use /api/mongodb?q=${searchQuery}
-      // Or filter client-side if dataset is small, but goal is backend search.
-
-      // If we want to use the backend's simple text search on /articles/search:
-      url = `${process.env.NEXT_PUBLIC_BASE_URL}/articles/search?q=${encodeURIComponent(searchQuery)}`;
-
-      // Append filters if the backend's /articles/search supports them.
-      // Assuming backend supports page, limit, sort_by, sort_order and q.
-      // For category/source: backend will need to be updated to support these as query params on /articles/search.
-      if (selectedTopic !== "all") {
-        // url += `&category=${encodeURIComponent(selectedTopic)}`; // Backend needs to support this
-      }
-      if (selectedSource !== "all") {
-        // url += `&source=${encodeURIComponent(selectedSource)}`; // Backend needs to support this
-      }
-
-
-      const response = await fetch(url);
+      // Change: Call the frontend API route for vector search.
+      // This will now make a POST request to your backend's /vector-search endpoint.
+      const response = await fetch(`/api/mongodb-vector?q=${encodeURIComponent(searchQuery)}`, {
+        method: "GET", // This is the method of the frontend route. The frontend route will make a POST to backend.
+      });
       const data = await response.json();
 
       if (data.success) {
-        setFilteredArticles(data.articles || data.data || []); // Adjust based on which backend endpoint returns what
-        setTotalResults(data.total_results || data.data?.length || 0);
+        // The backend's /vector-search returns data.data (which is the articles array)
+        let articles = data.data || [];
+
+        // Note: The backend's /vector-search currently does NOT support
+        // filtering by topic or source. These filters would need to be
+        // applied client-side here, or the backend endpoint needs enhancement.
+        // For now, applying client-side for demonstration purposes,
+        // but be aware this is after the vector search is performed on ALL articles.
+        if (selectedTopic !== "all") {
+          articles = articles.filter((article: Article) =>
+              article.ai_analysis?.technical_analysis?.key_topics?.includes(selectedTopic) // Assuming topic is in ai_analysis.technical_analysis.key_topics
+          );
+        }
+        if (selectedSource !== "all") {
+          articles = articles.filter((article: Article) => article.source === selectedSource);
+        }
+
+
+        setFilteredArticles(articles);
+        setTotalResults(articles.length); // Total results after client-side filtering
       } else {
         console.error("Search failed:", data.error);
         setFilteredArticles([]);
@@ -185,8 +187,8 @@ export default function SearchPage() {
           <Tabs defaultValue="articles" className="space-y-6">
             <TabsList>
               <TabsTrigger value="articles">Articles ({totalResults})</TabsTrigger>
-              <TabsTrigger value="patterns" disabled>Bias Patterns</TabsTrigger> {/* Disabled for now */}
-              <TabsTrigger value="similar" disabled>Similar Content</TabsTrigger> {/* Disabled for now */}
+              <TabsTrigger value="patterns" disabled>Bias Patterns</TabsTrigger>
+              <TabsTrigger value="similar" disabled>Similar Content</TabsTrigger>
             </TabsList>
 
             <TabsContent value="articles" className="space-y-4">
@@ -205,7 +207,8 @@ export default function SearchPage() {
                             <div className="flex items-center space-x-4 text-sm text-gray-600">
                               <span>{article.source}</span>
                               <span>{article.published_at ? new Date(article.published_at).toLocaleDateString() : 'N/A'}</span>
-                              <Badge variant="outline">{article.topic || "General"}</Badge>
+                              {/* Use key_topics from ai_analysis if available, fallback to category */}
+                              <Badge variant="outline">{article.ai_analysis?.technical_analysis?.key_topics?.[0] || article.topic || "General"}</Badge>
                               {article.vectorSearchScore !== undefined && (
                                   <Badge variant="secondary">Similarity: {(article.vectorSearchScore * 100).toFixed(1)}%</Badge>
                               )}
@@ -284,11 +287,13 @@ export default function SearchPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {filteredArticles.slice(0, 3).map((article) => ( // Using filteredArticles as a proxy
+                    {filteredArticles.slice(0, 3).map((article) => (
                         <div key={article._id} className="flex items-center justify-between p-4 border rounded-lg">
                           <div>
                             <h4 className="font-medium">{article.title}</h4>
-                            <p className="text-sm text-gray-600">{article.source} • Similarity: {(article.vectorSearchScore || 0) * 100).toFixed(1)}%</p>
+                            <p className="text-sm text-gray-600">
+                              {article.source} • Similarity: {((article.vectorSearchScore || 0) * 100).toFixed(1)}%
+                            </p>
                           </div>
                           {article.url && (
                               <Button variant="outline" size="sm" asChild>

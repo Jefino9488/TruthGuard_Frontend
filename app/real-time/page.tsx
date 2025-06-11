@@ -68,7 +68,7 @@ export default function RealTimePage() {
             try {
                 const update: RealTimeUpdate = JSON.parse(event.data)
 
-                setUpdates((prev) => [update, ...prev.slice(0, 49)]) // Keep last 50 updates
+                setUpdates((prev) => [update, ...prev.slice(0, 49)])
 
                 if (update.stats) {
                     setStats(update.stats)
@@ -100,12 +100,11 @@ export default function RealTimePage() {
         try {
             // This now calls the frontend API route, which in turn triggers the backend scrape
             const response = await fetch("/api/news-scraper", {
-                method: "GET", // Use GET to trigger auto-scrape as per frontend route
+                method: "GET",
             })
             const result = await response.json()
 
             if (result.success) {
-                // Add a manual update to show scraping initiation, actual results will come via SSE
                 const scrapingUpdate: RealTimeUpdate = {
                     type: "news_scraping_initiated",
                     message: result.message || "News scraping initiated on backend.",
@@ -324,7 +323,7 @@ export default function RealTimePage() {
                                                             <Search className="h-5 w-5 text-purple-600" />
                                                         ) : update.type === "news_scraping" ? (
                                                             <RefreshCw className="h-5 w-5 text-orange-600" />
-                                                        ) : update.type === "news_scraping_initiated" ? ( // Handle new type
+                                                        ) : update.type === "news_scraping_initiated" ? (
                                                             <RefreshCw className="h-5 w-5 text-orange-400" />
                                                         ) : (
                                                             <Activity className="h-5 w-5 text-gray-600" />

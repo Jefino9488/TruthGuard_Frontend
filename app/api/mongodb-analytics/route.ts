@@ -1,3 +1,4 @@
+// app/api/mongodb-analytics/route.ts
 import { type NextRequest, NextResponse } from "next/server";
 
 const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
@@ -34,7 +35,7 @@ export async function GET(request: NextRequest) {
           // For a true "bias trends" over time, the backend would need a specific aggregation.
           // For now, we'll return a simplified version using existing data.
           result = data.biasDistribution?.map((item: any) => ({
-            _id: item._id, // This is the bucket boundary
+            _id: item._id, // This is the bucket boundary (e.g., 0, 0.2, 0.4)
             avgBias: item._id, // Use bucket as avg for simplicity in frontend chart
             articleCount: item.count,
             highBiasCount: item.count, // Simplified: count all articles in the bucket as high bias for this view
@@ -48,14 +49,14 @@ export async function GET(request: NextRequest) {
           // Assuming "category" from articles can serve as "topic" if backend populates it
           // This part would need a specific backend endpoint for true topic analysis
           result = []; // Placeholder or adapt if 'categories' are available in backend response
-          if (data.overall_metrics?.uniqueTopics) {
-            result = data.overall_metrics.uniqueTopics.map((topic: string) => ({
+          if (data.totalStats?.[0]?.uniqueTopics) { // Use totalStats.uniqueTopics
+            result = data.totalStats[0].uniqueTopics.map((topic: string) => ({
               _id: topic,
               count: 0, // Cannot get count per topic from current dashboard-analytics directly
-              avgBias: data.overall_metrics.avgBias,
-              avgCredibility: data.overall_metrics.avgCredibility,
+              avgBias: data.totalStats[0].avgBias,
+              avgCredibility: data.totalStats[0].avgCredibility,
               avgSentiment: 0,
-              avgMisinfoRisk: data.overall_metrics.avgMisinfo,
+              avgMisinfoRisk: data.totalStats[0].avgMisinfoRisk,
               sources: [],
               recentTrend: [],
               trendDirection: "stable"
@@ -81,22 +82,22 @@ export async function GET(request: NextRequest) {
           // Backend's `get_dashboard_analytics` provides some overall stats
           result = {
             lastHour: [{
-              count: data.overall_metrics?.total_articles || 0,
-              avgBias: data.overall_metrics?.avgBias || 0,
-              highRiskCount: data.overall_metrics?.high_risk_count || 0,
+              count: data.totalStats?.[0]?.totalArticles || 0, // Using total articles for simplicity
+              avgBias: data.totalStats?.[0]?.avgBias || 0,
+              highRiskCount: data.totalStats?.[0]?.high_risk_count || 0, // Using high_risk_count from backend
             }],
             last24Hours: [{
-              count: data.overall_metrics?.total_articles || 0,
-              avgBias: data.overall_metrics?.avgBias || 0,
-              avgCredibility: data.overall_metrics?.avgCredibility || 0,
-              sources: data.overall_metrics?.uniqueSources || [],
-              topics: data.overall_metrics?.uniqueTopics || [],
+              count: data.totalStats?.[0]?.totalArticles || 0,
+              avgBias: data.totalStats?.[0]?.avgBias || 0,
+              avgCredibility: data.totalStats?.[0]?.avgCredibility || 0,
+              sources: data.totalStats?.[0]?.uniqueSources || [],
+              topics: data.totalStats?.[0]?.uniqueTopics || [],
             }],
             processingRate: [], // Not directly available
           };
           break;
         default: // overview
-          result = data;
+          result = data; // Return all data as is for overview
           break;
       }
 

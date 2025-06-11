@@ -7,9 +7,11 @@ interface Article {
   _id: string; // MongoDB ObjectId
   title: string;
   source: string;
-  bias_score: number;
-  misinformation_risk?: number; // Optional, might not always be present
-  timestamp: string; // ISO string
+  bias_score?: number; // Optional, can be 0.0 to 1.0
+  misinformation_risk?: number; // Optional, can be 0.0 to 1.0
+  credibility_score?: number; // Optional, can be 0.0 to 1.0
+  published_at?: string; // ISO string
+  analyzed_at?: string; // ISO string for when analysis was done
   topic?: string;
   url?: string;
 }
@@ -20,30 +22,31 @@ interface RecentArticlesProps {
 
 export function RecentArticles({ articles }: RecentArticlesProps) {
   const getBiasColor = (score: number) => {
+    if (score < 0.4) return "bg-green-100 text-green-800" // Adjusted for 0.5 center bias
+    if (score > 0.6) return "bg-red-100 text-red-800"
+    return "bg-yellow-100 text-yellow-800"
+  }
+
+  const getRiskColor = (score: number) => {
     if (score < 0.3) return "bg-green-100 text-green-800"
     if (score < 0.6) return "bg-yellow-100 text-yellow-800"
     return "bg-red-100 text-red-800"
   }
 
-  const getRiskColor = (score: number) => {
-    if (score < 0.2) return "bg-green-100 text-green-800"
-    if (score < 0.5) return "bg-yellow-100 text-yellow-800"
-    return "bg-red-100 text-red-800"
-  }
-
   const getBiasLabel = (score: number) => {
-    if (score < 0.3) return "Low"
-    if (score < 0.6) return "Moderate"
-    return "High"
+    if (score < 0.4) return "Low"
+    if (score > 0.6) return "High"
+    return "Moderate"
   }
 
   const getRiskLabel = (score: number) => {
-    if (score < 0.2) return "Low"
-    if (score < 0.5) return "Medium"
+    if (score < 0.3) return "Low"
+    if (score < 0.6) return "Medium"
     return "High"
   }
 
-  const formatTimeAgo = (isoString: string) => {
+  const formatTimeAgo = (isoString: string | undefined) => {
+    if (!isoString) return 'N/A';
     const date = new Date(isoString);
     const now = new Date();
     const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
@@ -74,9 +77,10 @@ export function RecentArticles({ articles }: RecentArticlesProps) {
                     <h4 className="font-medium mb-1">{article.title}</h4>
                     <div className="flex items-center space-x-4 text-sm text-gray-600">
                       <span>{article.source}</span>
-                      <span>{formatTimeAgo(article.timestamp)}</span>
+                      {/* Prefer analyzed_at if available, otherwise published_at */}
+                      <span>{formatTimeAgo(article.analyzed_at || article.published_at)}</span>
                       <div className="flex items-center space-x-2">
-                        <Badge className={getBiasColor(article.bias_score)}>Bias: {getBiasLabel(article.bias_score)}</Badge>
+                        <Badge className={getBiasColor(article.bias_score || 0.5)}>Bias: {getBiasLabel(article.bias_score || 0.5)}</Badge>
                         <Badge className={getRiskColor(article.misinformation_risk || 0.1)}>
                           Risk: {getRiskLabel(article.misinformation_risk || 0.1)}
                         </Badge>
@@ -84,7 +88,7 @@ export function RecentArticles({ articles }: RecentArticlesProps) {
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    {(article.misinformation_risk || 0) > 0.5 ? (
+                    {(article.misinformation_risk || 0) > 0.5 || (article.bias_score || 0) > 0.6 ? ( // Flag if high risk or high bias
                         <AlertTriangle className="h-5 w-5 text-red-500" />
                     ) : (
                         <CheckCircle className="h-5 w-5 text-green-500" />
@@ -101,5 +105,5 @@ export function RecentArticles({ articles }: RecentArticlesProps) {
             ))
         )}
       </div>
-  )
+  );
 }

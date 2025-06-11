@@ -28,11 +28,12 @@ interface SourceComparisonProps {
 export const SourceComparison: React.FC<SourceComparisonProps> = ({ data }) => {
     // Helper to determine bias direction string and color
     const getBiasLabelAndColor = (bias: number) => {
-        if (bias >= 0 && bias <= 0.2) return { label: 'Left', color: 'bg-green-500' };
-        if (bias > 0.2 && bias <= 0.4) return { label: 'Left-Center', color: 'bg-lime-500' };
-        if (bias > 0.4 && bias < 0.6) return { label: 'Center', color: 'bg-blue-500' };
-        if (bias >= 0.6 && bias < 0.8) return { label: 'Right-Center', color: 'bg-orange-500' };
-        if (bias >= 0.8 && bias <= 1.0) return { label: 'Right', color: 'bg-red-500' };
+        // Updated ranges to reflect 0-1 scale with 0.5 as center
+        if (bias >= 0 && bias < 0.2) return { label: 'Far Left', color: 'bg-blue-700' };
+        if (bias >= 0.2 && bias < 0.4) return { label: 'Left-leaning', color: 'bg-blue-500' };
+        if (bias >= 0.4 && bias <= 0.6) return { label: 'Centrist', color: 'bg-gray-500' }; // Center is 0.5
+        if (bias > 0.6 && bias <= 0.8) return { label: 'Right-leaning', color: 'bg-red-500' };
+        if (bias > 0.8 && bias <= 1.0) return { label: 'Far Right', color: 'bg-red-700' };
         return { label: 'Unknown', color: 'bg-gray-400' };
     };
 
@@ -83,11 +84,17 @@ export const SourceComparison: React.FC<SourceComparisonProps> = ({ data }) => {
                                     {getBiasLabelAndColor(item.averageBias).label}
                                 </Badge>
                             </TableCell>
-                            <TableCell>{item.averageMisinformationRisk.toFixed(2)}</TableCell>
+                            <TableCell>
+                                <Badge className={`${getMisinformationLabelAndColor(item.averageMisinformationRisk).color} text-white`}>
+                                    {getMisinformationLabelAndColor(item.averageMisinformationRisk).label}
+                                </Badge>
+                                ({item.averageMisinformationRisk.toFixed(2)})
+                            </TableCell>
                             <TableCell>
                                 <Badge className={`${getCredibilityLabelAndColor(item.averageCredibility).color} text-white`}>
                                     {getCredibilityLabelAndColor(item.averageCredibility).label}
                                 </Badge>
+                                ({item.averageCredibility.toFixed(2)})
                             </TableCell>
                         </TableRow>
                     ))}

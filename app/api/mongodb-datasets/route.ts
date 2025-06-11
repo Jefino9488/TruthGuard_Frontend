@@ -1,8 +1,9 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { MongoClient, ServerApiVersion } from "mongodb"
+import { type NextRequest, NextResponse } from "next/server";
+import { MongoClient, ServerApiVersion } from "mongodb";
 
-const uri =
-  "mongodb+srv://TruthGuard:TruthGuard@cluster0.dhlp73u.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+// Use environment variables for MongoDB connection
+const uri = process.env.MONGODB_URI as string;
+const dbName = process.env.MONGODB_DB as string;
 
 const client = new MongoClient(uri, {
   serverApi: {
@@ -10,73 +11,76 @@ const client = new MongoClient(uri, {
     strict: true,
     deprecationErrors: true,
   },
-})
+});
 
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams
-    const dataset = searchParams.get("dataset") || "sample_mflix"
-    const analysis_type = searchParams.get("analysis") || "comprehensive"
-    const limit = Number.parseInt(searchParams.get("limit") || "10")
+    const searchParams = request.nextUrl.searchParams;
+    const dataset = searchParams.get("dataset") || "sample_mflix";
+    const analysis_type = searchParams.get("analysis") || "comprehensive";
+    const limit = Number.parseInt(searchParams.get("limit") || "10");
 
-    await client.connect()
+    await client.connect();
 
-    let results = []
-    let datasetInfo = {}
+    let results = [];
+    let datasetInfo = {};
 
+    // Note: These functions for sample datasets are kept local to the frontend API
+    // as the backend's core focus is TruthGuard's article data.
     switch (dataset) {
       case "sample_mflix":
-        results = await analyzeMovieDataset(limit, analysis_type)
+        results = await analyzeMovieDataset(limit, analysis_type);
         datasetInfo = {
           name: "MongoDB Sample Movies Dataset",
           description: "Movie database with ratings, genres, and reviews",
           total_documents: await client.db("sample_mflix").collection("movies").countDocuments(),
           use_case: "Content analysis and recommendation systems",
-        }
-        break
+        };
+        break;
 
       case "sample_airbnb":
-        results = await analyzeAirbnbDataset(limit, analysis_type)
+        results = await analyzeAirbnbDataset(limit, analysis_type);
         datasetInfo = {
           name: "MongoDB Sample Airbnb Dataset",
           description: "Airbnb listings with reviews and location data",
           total_documents: await client.db("sample_airbnb").collection("listingsAndReviews").countDocuments(),
           use_case: "Sentiment analysis and location-based insights",
-        }
-        break
+        };
+        break;
 
       case "sample_restaurants":
-        results = await analyzeRestaurantDataset(limit, analysis_type)
+        results = await analyzeRestaurantDataset(limit, analysis_type);
         datasetInfo = {
           name: "MongoDB Sample Restaurants Dataset",
           description: "Restaurant data with reviews and ratings",
           total_documents: await client.db("sample_restaurants").collection("restaurants").countDocuments(),
           use_case: "Review sentiment and business intelligence",
-        }
-        break
+        };
+        break;
 
       case "sample_training":
-        results = await analyzeTrainingDataset(limit, analysis_type)
+        results = await analyzeTrainingDataset(limit, analysis_type);
         datasetInfo = {
           name: "MongoDB Sample Training Dataset",
           description: "Training data for machine learning models",
           total_documents: await client.db("sample_training").collection("posts").countDocuments(),
           use_case: "Social media sentiment and engagement analysis",
-        }
-        break
+        };
+        break;
 
       default:
-        results = await analyzeTruthGuardDataset(limit, analysis_type)
+        // Default to TruthGuard's own articles collection
+        results = await analyzeTruthGuardDataset(limit, analysis_type);
         datasetInfo = {
           name: "TruthGuard News Analysis Dataset",
-          description: "Real-time news articles with AI analysis",
-          total_documents: await client.db("TruthGuard").collection("articles").countDocuments(),
+          description: "Real-time news articles with AI analysis from the TruthGuard Backend",
+          total_documents: await client.db(dbName).collection("articles").countDocuments(),
           use_case: "Misinformation detection and bias analysis",
-        }
+        };
     }
 
-    // Generate Google Cloud AI insights for the dataset
-    const googleAIInsights = await generateDatasetInsights(results, dataset)
+    // Generate Google Cloud AI insights for the dataset (simulated)
+    const googleAIInsights = await generateDatasetInsights(results, dataset);
 
     return NextResponse.json({
       success: true,
@@ -96,27 +100,26 @@ export async function GET(request: NextRequest) {
         mongodb_integration: true,
         google_cloud_partnership: true,
       },
-    })
-  } catch (error) {
-    console.error("MongoDB Dataset Analysis Error:", error)
+    });
+  } catch (error: any) {
+    console.error("MongoDB Dataset Analysis Error:", error);
     return NextResponse.json(
-      {
-        success: false,
-        error: "Dataset analysis failed",
-        details: error.message,
-      },
-      { status: 500 },
-    )
+        {
+          success: false,
+          error: "Dataset analysis failed",
+          details: error.message,
+        },
+        { status: 500 },
+    );
   } finally {
-    await client.close()
+    await client.close();
   }
 }
 
 async function analyzeMovieDataset(limit: number, analysisType: string) {
-  const database = client.db("sample_mflix")
-  const collection = database.collection("movies")
+  const database = client.db("sample_mflix");
+  const collection = database.collection("movies");
 
-  // Advanced MongoDB Aggregation Pipeline for movie analysis
   const pipeline = [
     {
       $match: {
@@ -127,7 +130,6 @@ async function analyzeMovieDataset(limit: number, analysisType: string) {
     },
     {
       $addFields: {
-        // AI-powered sentiment analysis of movie plots
         plot_sentiment: {
           $switch: {
             branches: [
@@ -155,7 +157,6 @@ async function analyzeMovieDataset(limit: number, analysisType: string) {
             default: "neutral",
           },
         },
-        // Bias detection in movie descriptions
         potential_bias: {
           $cond: {
             if: {
@@ -169,7 +170,6 @@ async function analyzeMovieDataset(limit: number, analysisType: string) {
             else: "low",
           },
         },
-        // Content analysis
         content_complexity: {
           $switch: {
             branches: [
@@ -199,14 +199,14 @@ async function analyzeMovieDataset(limit: number, analysisType: string) {
     },
     { $sort: { count: -1 } },
     { $limit: limit },
-  ]
+  ];
 
-  return await collection.aggregate(pipeline).toArray()
+  return await collection.aggregate(pipeline).toArray();
 }
 
 async function analyzeAirbnbDataset(limit: number, analysisType: string) {
-  const database = client.db("sample_airbnb")
-  const collection = database.collection("listingsAndReviews")
+  const database = client.db("sample_airbnb");
+  const collection = database.collection("listingsAndReviews");
 
   const pipeline = [
     {
@@ -217,7 +217,6 @@ async function analyzeAirbnbDataset(limit: number, analysisType: string) {
     },
     {
       $addFields: {
-        // Sentiment analysis of property descriptions
         description_sentiment: {
           $switch: {
             branches: [
@@ -255,7 +254,6 @@ async function analyzeAirbnbDataset(limit: number, analysisType: string) {
             default: "neutral",
           },
         },
-        // Bias detection in descriptions
         marketing_bias: {
           $cond: {
             if: {
@@ -289,14 +287,14 @@ async function analyzeAirbnbDataset(limit: number, analysisType: string) {
     },
     { $sort: { count: -1 } },
     { $limit: limit },
-  ]
+  ];
 
-  return await collection.aggregate(pipeline).toArray()
+  return await collection.aggregate(pipeline).toArray();
 }
 
 async function analyzeRestaurantDataset(limit: number, analysisType: string) {
-  const database = client.db("sample_restaurants")
-  const collection = database.collection("restaurants")
+  const database = client.db("sample_restaurants");
+  const collection = database.collection("restaurants");
 
   const pipeline = [
     {
@@ -307,7 +305,6 @@ async function analyzeRestaurantDataset(limit: number, analysisType: string) {
     },
     {
       $addFields: {
-        // Calculate average grade
         avg_grade_score: {
           $avg: {
             $map: {
@@ -326,7 +323,6 @@ async function analyzeRestaurantDataset(limit: number, analysisType: string) {
             },
           },
         },
-        // Bias detection in restaurant names/cuisine
         cultural_representation: {
           $switch: {
             branches: [
@@ -371,14 +367,14 @@ async function analyzeRestaurantDataset(limit: number, analysisType: string) {
     },
     { $sort: { count: -1 } },
     { $limit: limit },
-  ]
+  ];
 
-  return await collection.aggregate(pipeline).toArray()
+  return await collection.aggregate(pipeline).toArray();
 }
 
 async function analyzeTrainingDataset(limit: number, analysisType: string) {
-  const database = client.db("sample_training")
-  const collection = database.collection("posts")
+  const database = client.db("sample_training");
+  const collection = database.collection("posts");
 
   const pipeline = [
     {
@@ -389,7 +385,6 @@ async function analyzeTrainingDataset(limit: number, analysisType: string) {
     },
     {
       $addFields: {
-        // Sentiment analysis of post content
         content_sentiment: {
           $switch: {
             branches: [
@@ -417,7 +412,6 @@ async function analyzeTrainingDataset(limit: number, analysisType: string) {
             default: "neutral",
           },
         },
-        // Engagement prediction based on content
         engagement_potential: {
           $switch: {
             branches: [
@@ -463,20 +457,20 @@ async function analyzeTrainingDataset(limit: number, analysisType: string) {
     },
     { $sort: { count: -1 } },
     { $limit: limit },
-  ]
+  ];
 
-  return await collection.aggregate(pipeline).toArray()
+  return await collection.aggregate(pipeline).toArray();
 }
 
 async function analyzeTruthGuardDataset(limit: number, analysisType: string) {
-  const database = client.db("TruthGuard")
-  const collection = database.collection("articles")
+  const database = client.db(dbName);
+  const collection = database.collection("articles");
 
   const pipeline = [
     {
       $match: {
         content: { $exists: true },
-        analysis: { $exists: true },
+        ai_analysis: { $exists: true }, // Changed from 'analysis' to 'ai_analysis' to match backend schema
       },
     },
     {
@@ -484,17 +478,17 @@ async function analyzeTruthGuardDataset(limit: number, analysisType: string) {
         bias_category: {
           $switch: {
             branches: [
-              { case: { $gte: ["$analysis.bias_analysis.overall_score", 0.7] }, then: "high_bias" },
-              { case: { $gte: ["$analysis.bias_analysis.overall_score", 0.4] }, then: "medium_bias" },
+              { case: { $gte: ["$ai_analysis.bias_analysis.overall_score", 0.7] }, then: "high_bias" },
+              { case: { $gte: ["$ai_analysis.bias_analysis.overall_score", 0.4] }, then: "medium_bias" },
             ],
             default: "low_bias",
           },
         },
-        misinformation_risk: {
+        misinformation_risk_category: { // Renamed to avoid conflict with field name in collection
           $switch: {
             branches: [
-              { case: { $gte: ["$analysis.misinformation_analysis.risk_score", 0.7] }, then: "high_risk" },
-              { case: { $gte: ["$analysis.misinformation_analysis.risk_score", 0.4] }, then: "medium_risk" },
+              { case: { $gte: ["$ai_analysis.misinformation_analysis.risk_score", 0.7] }, then: "high_risk" },
+              { case: { $gte: ["$ai_analysis.misinformation_analysis.risk_score", 0.4] }, then: "medium_risk" },
             ],
             default: "low_risk",
           },
@@ -506,24 +500,23 @@ async function analyzeTruthGuardDataset(limit: number, analysisType: string) {
         _id: {
           source: "$source",
           bias_category: "$bias_category",
-          risk_level: "$misinformation_risk",
+          risk_level: "$misinformation_risk_category", // Use new field name
         },
         count: { $sum: 1 },
-        avg_bias: { $avg: "$analysis.bias_analysis.overall_score" },
-        avg_credibility: { $avg: "$analysis.credibility_assessment.overall_score" },
-        avg_viral_potential: { $avg: "$analysis.viral_prediction.viral_score" },
+        avg_bias: { $avg: "$ai_analysis.bias_analysis.overall_score" },
+        avg_credibility: { $avg: "$ai_analysis.credibility_assessment.overall_score" },
+        avg_viral_potential: { $avg: "$ai_analysis.viral_prediction.viral_score" }, // Assuming this field exists in backend analysis
         sample_articles: { $push: "$title" },
       },
     },
     { $sort: { count: -1 } },
     { $limit: limit },
-  ]
+  ];
 
-  return await collection.aggregate(pipeline).toArray()
+  return await collection.aggregate(pipeline).toArray();
 }
 
 async function generateDatasetInsights(results: any[], dataset: string) {
-  // Generate Google Cloud AI-powered insights for the dataset
   const insights = {
     dataset_analysis: {
       total_patterns: results.length,
@@ -570,70 +563,56 @@ async function generateDatasetInsights(results: any[], dataset: string) {
       real_world_impact: 0.93,
       scalability: 0.91,
     },
-  }
+  };
 
-  return insights
+  return insights;
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const { dataset, custom_analysis, ai_model = "gemini" } = await request.json()
+    const { dataset, custom_analysis, ai_model = "gemini" } = await request.json();
 
-    await client.connect()
+    await client.connect();
 
-    // Perform custom analysis with Google Cloud AI
-    let analysisResults = []
+    let analysisResults = [];
 
     if (custom_analysis) {
-      // Custom analysis using Google Cloud AI
-      analysisResults = await performCustomGoogleAIAnalysis(dataset, custom_analysis, ai_model)
+      // In a real application, this would call the backend's custom analysis endpoint
+      // For this hackathon, we simulate or reuse generic analysis through the main backend /analyze-manual endpoint.
+      const dummyContent = `Custom analysis for dataset: ${dataset}, type: ${custom_analysis}. Using AI model: ${ai_model}.`;
+      const backendAnalyzeResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/analyze-manual`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: dummyContent, headline: `Custom Analysis for ${dataset}` }),
+      });
+
+      if (!backendAnalyzeResponse.ok) {
+        throw new Error(`Backend manual analysis failed for custom_analysis: ${backendAnalyzeResponse.statusText}`);
+      }
+
+      const backendAnalysisResult = await backendAnalyzeResponse.json();
+      analysisResults.push(backendAnalysisResult.analysis);
+
     }
 
     return NextResponse.json({
       success: true,
-      message: "Custom Google Cloud AI analysis completed",
+      message: "Custom Google Cloud AI analysis completed (via backend's manual analysis)",
       results: analysisResults,
       ai_model_used: ai_model,
       mongodb_features_used: ["aggregation_pipeline", "vector_search", "atlas_search"],
-    })
-  } catch (error) {
-    console.error("Custom Analysis Error:", error)
+    });
+  } catch (error: any) {
+    console.error("Custom Analysis Error:", error);
     return NextResponse.json(
-      {
-        success: false,
-        error: "Custom analysis failed",
-        details: error.message,
-      },
-      { status: 500 },
-    )
+        {
+          success: false,
+          error: "Custom analysis failed",
+          details: error.message,
+        },
+        { status: 500 },
+    );
   } finally {
-    await client.close()
+    await client.close();
   }
-}
-
-async function performCustomGoogleAIAnalysis(dataset: string, analysisType: string, aiModel: string) {
-  // Placeholder for custom Google Cloud AI analysis
-  // In production, this would integrate with actual Google Cloud AI APIs
-
-  const customAnalysis = {
-    dataset,
-    analysis_type: analysisType,
-    ai_model: aiModel,
-    results: {
-      patterns_detected: Math.floor(Math.random() * 50) + 10,
-      confidence_score: 0.85 + Math.random() * 0.15,
-      processing_time: `${Math.floor(Math.random() * 5) + 1}s`,
-      insights_generated: Math.floor(Math.random() * 20) + 5,
-    },
-    google_cloud_features: [
-      "Natural Language Processing",
-      "Sentiment Analysis",
-      "Entity Recognition",
-      "Content Classification",
-      "Bias Detection",
-    ],
-    mongodb_operations: ["Aggregation Pipeline", "Vector Search", "Atlas Search", "Change Streams"],
-  }
-
-  return customAnalysis
 }

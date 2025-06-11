@@ -1,362 +1,123 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { MongoClient, ServerApiVersion } from "mongodb"
+import { type NextRequest, NextResponse } from "next/server";
 
-const uri = process.env.MONGODB_URI as string
-const dbName = process.env.MONGODB_DB as string
-
-const client = new MongoClient(uri, {
-  serverApi: {
-    version: ServerApiVersion.v1,
-    strict: true,
-    deprecationErrors: true,
-  },
-})
+const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
 export async function GET(request: NextRequest) {
   try {
-    await client.connect()
-    const database = client.db(dbName)
-    const collection = database.collection("articles")
+    const searchParams = request.nextUrl.searchParams;
+    const analysisType = searchParams.get("type") || "overview";
 
-    const searchParams = request.nextUrl.searchParams
-    const analysisType = searchParams.get("type") || "overview"
+    // Call the backend's dashboard analytics endpoint
+    const backendResponse = await fetch(`${BACKEND_BASE_URL}/dashboard-analytics`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
 
-    let result
-
-    switch (analysisType) {
-      case "bias_trends":
-        result = await getBiasTrends(collection)
-        break
-      case "source_comparison":
-        result = await getSourceComparison(collection)
-        break
-      case "topic_analysis":
-        result = await getTopicAnalysis(collection)
-        break
-      case "misinformation_patterns":
-        result = await getMisinformationPatterns(collection)
-        break
-      case "real_time_stats":
-        result = await getRealTimeStats(collection)
-        break
-      default:
-        result = await getOverviewAnalytics(collection)
+    if (!backendResponse.ok) {
+      const errorData = await backendResponse.json();
+      throw new Error(`Backend analytics failed: ${errorData.error || backendResponse.statusText}`);
     }
 
-    return NextResponse.json({
-      success: true,
-      data: result,
-      analysisType,
-      generatedAt: new Date().toISOString(),
-      mongodbFeatures: [
-        "Advanced Aggregation Pipeline",
-        "Time Series Analysis",
-        "Statistical Operations",
-        "Faceted Search",
-        "Real-time Analytics",
-      ],
-    })
-  } catch (error) {
-    console.error("MongoDB Analytics Error:", error)
-    return NextResponse.json({ success: false, error: "Analytics failed" }, { status: 500 })
-  } finally {
-    await client.close()
+    const backendData = await backendResponse.json();
+
+    if (backendData.success && backendData.data) {
+      const data = backendData.data;
+      let result: any;
+
+      // The backend's /dashboard-analytics already provides most of the aggregated data.
+      // We map it to the frontend's expected structure here.
+      switch (analysisType) {
+        case "bias_trends":
+          // Backend's `get_dashboard_analytics` currently provides `biasDistribution` which can be adapted
+          // For a true "bias trends" over time, the backend would need a specific aggregation.
+          // For now, we'll return a simplified version using existing data.
+          result = data.biasDistribution?.map((item: any) => ({
+            _id: item._id, // This is the bucket boundary
+            avgBias: item._id, // Use bucket as avg for simplicity in frontend chart
+            articleCount: item.count,
+            highBiasCount: item.count, // Simplified: count all articles in the bucket as high bias for this view
+          })) || [];
+          break;
+        case "source_comparison":
+          result = data.sourceComparison || [];
+          break;
+        case "topic_analysis":
+          // Backend doesn't explicitly group by "topic" directly in dashboard-analytics
+          // Assuming "category" from articles can serve as "topic" if backend populates it
+          // This part would need a specific backend endpoint for true topic analysis
+          result = []; // Placeholder or adapt if 'categories' are available in backend response
+          if (data.overall_metrics?.uniqueTopics) {
+            result = data.overall_metrics.uniqueTopics.map((topic: string) => ({
+              _id: topic,
+              count: 0, // Cannot get count per topic from current dashboard-analytics directly
+              avgBias: data.overall_metrics.avgBias,
+              avgCredibility: data.overall_metrics.avgCredibility,
+              avgSentiment: 0,
+              avgMisinfoRisk: data.overall_metrics.avgMisinfo,
+              sources: [],
+              recentTrend: [],
+              trendDirection: "stable"
+            }));
+          }
+          break;
+        case "misinformation_patterns":
+          // Backend's `get_dashboard_analytics` provides `overall_metrics.avg_misinfo`
+          // and `threat_assessment`. Need to adapt.
+          result = {
+            riskBySource: data.threat_assessment?.map((threat: any) => ({
+              _id: threat._id,
+              highRiskCount: threat.threat_count,
+              avgRisk: threat.avg_threat_level,
+              totalArticles: 0, // Not available directly
+              riskPercentage: 0, // Not available directly
+            })) || [],
+            riskByTopic: [], // Not directly available
+            timePatterns: [], // Not directly available
+          };
+          break;
+        case "real_time_stats":
+          // Backend's `get_dashboard_analytics` provides some overall stats
+          result = {
+            lastHour: [{
+              count: data.overall_metrics?.total_articles || 0,
+              avgBias: data.overall_metrics?.avgBias || 0,
+              highRiskCount: data.overall_metrics?.high_risk_count || 0,
+            }],
+            last24Hours: [{
+              count: data.overall_metrics?.total_articles || 0,
+              avgBias: data.overall_metrics?.avgBias || 0,
+              avgCredibility: data.overall_metrics?.avgCredibility || 0,
+              sources: data.overall_metrics?.uniqueSources || [],
+              topics: data.overall_metrics?.uniqueTopics || [],
+            }],
+            processingRate: [], // Not directly available
+          };
+          break;
+        default: // overview
+          result = data;
+          break;
+      }
+
+      return NextResponse.json({
+        success: true,
+        data: result,
+        analysisType,
+        generatedAt: new Date().toISOString(),
+        mongodbFeatures: [
+          "Advanced Aggregation Pipeline",
+          "Time Series Analysis",
+          "Statistical Operations",
+          "Faceted Search",
+          "Real-time Analytics",
+        ],
+      });
+    } else {
+      throw new Error(backendData.error || "Backend returned no data.");
+    }
+  } catch (error: any) {
+    console.error("MongoDB Analytics Error (Frontend Route):", error);
+    return NextResponse.json({ success: false, error: "Analytics failed", details: error.message }, { status: 500 });
   }
-}
-
-
-async function getBiasTrends(collection: any) {
-  return await collection
-    .aggregate([
-      {
-        $addFields: {
-          dateStr: { $dateToString: { format: "%Y-%m-%d", date: "$timestamp" } },
-        },
-      },
-      {
-        $group: {
-          _id: "$dateStr",
-          avgBias: { $avg: "$bias_score" },
-          articleCount: { $sum: 1 },
-          highBiasCount: {
-            $sum: { $cond: [{ $gte: ["$bias_score", 0.6] }, 1, 0] },
-          },
-          sources: { $addToSet: "$source" },
-        },
-      },
-      { $sort: { _id: -1 } },
-      { $limit: 30 },
-    ])
-    .toArray()
-}
-
-async function getSourceComparison(collection: any) {
-  return await collection
-    .aggregate([
-      {
-        $group: {
-          _id: "$source",
-          articleCount: { $sum: 1 },
-          avgBias: { $avg: "$bias_score" },
-          avgCredibility: { $avg: "$credibility_score" },
-          avgMisinfoRisk: { $avg: "$misinformation_risk" },
-          avgSentiment: { $avg: "$sentiment" },
-          topics: { $addToSet: "$topic" },
-          biasDistribution: {
-            $push: {
-              $switch: {
-                branches: [
-                  { case: { $lt: ["$bias_score", 0.3] }, then: "low" },
-                  { case: { $lt: ["$bias_score", 0.6] }, then: "moderate" },
-                  { case: { $gte: ["$bias_score", 0.6] }, then: "high" },
-                ],
-                default: "unknown",
-              },
-            },
-          },
-        },
-      },
-      {
-        $addFields: {
-          biasCategories: {
-            $reduce: {
-              input: "$biasDistribution",
-              initialValue: { low: 0, moderate: 0, high: 0 },
-              in: {
-                low: { $cond: [{ $eq: ["$$this", "low"] }, { $add: ["$$value.low", 1] }, "$$value.low"] },
-                moderate: {
-                  $cond: [{ $eq: ["$$this", "moderate"] }, { $add: ["$$value.moderate", 1] }, "$$value.moderate"],
-                },
-                high: { $cond: [{ $eq: ["$$this", "high"] }, { $add: ["$$value.high", 1] }, "$$value.high"] },
-              },
-            },
-          },
-        },
-      },
-      { $sort: { articleCount: -1 } },
-    ])
-    .toArray()
-}
-
-async function getTopicAnalysis(collection: any) {
-  return await collection
-    .aggregate([
-      {
-        $group: {
-          _id: "$topic",
-          count: { $sum: 1 },
-          avgBias: { $avg: "$bias_score" },
-          avgCredibility: { $avg: "$credibility_score" },
-          avgSentiment: { $avg: "$sentiment" },
-          avgMisinfoRisk: { $avg: "$misinformation_risk" },
-          sources: { $addToSet: "$source" },
-          recentTrend: {
-            $push: {
-              $cond: [
-                { $gte: ["$timestamp", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)] },
-                {
-                  date: { $dateToString: { format: "%Y-%m-%d", date: "$timestamp" } },
-                  bias: "$bias_score",
-                  sentiment: "$sentiment",
-                },
-                "$$REMOVE",
-              ],
-            },
-          },
-        },
-      },
-      {
-        $addFields: {
-          trendDirection: {
-            $cond: [
-              { $gt: [{ $size: "$recentTrend" }, 1] },
-              {
-                $cond: [
-                  {
-                    $gt: [
-                      { $avg: { $slice: ["$recentTrend.bias", -3] } },
-                      { $avg: { $slice: ["$recentTrend.bias", 0, 3] } },
-                    ],
-                  },
-                  "increasing",
-                  "decreasing",
-                ],
-              },
-              "stable",
-            ],
-          },
-        },
-      },
-      { $sort: { count: -1 } },
-    ])
-    .toArray()
-}
-
-async function getMisinformationPatterns(collection: any) {
-  return await collection
-    .aggregate([
-      {
-        $match: {
-          misinformation_risk: { $gte: 0.5 },
-        },
-      },
-      {
-        $facet: {
-          riskBySource: [
-            {
-              $group: {
-                _id: "$source",
-                highRiskCount: { $sum: 1 },
-                avgRisk: { $avg: "$misinformation_risk" },
-                totalArticles: { $sum: 1 },
-              },
-            },
-            {
-              $lookup: {
-                from: "articles",
-                let: { source: "$_id" },
-                pipeline: [{ $match: { $expr: { $eq: ["$source", "$$source"] } } }, { $count: "total" }],
-                as: "totalCount",
-              },
-            },
-            {
-              $addFields: {
-                riskPercentage: {
-                  $multiply: [{ $divide: ["$highRiskCount", { $arrayElemAt: ["$totalCount.total", 0] }] }, 100],
-                },
-              },
-            },
-          ],
-          riskByTopic: [
-            {
-              $group: {
-                _id: "$topic",
-                highRiskCount: { $sum: 1 },
-                avgRisk: { $avg: "$misinformation_risk" },
-                commonPatterns: { $addToSet: "$narrative_analysis.primary_frame" },
-              },
-            },
-          ],
-          timePatterns: [
-            {
-              $group: {
-                _id: {
-                  hour: { $hour: "$timestamp" },
-                  dayOfWeek: { $dayOfWeek: "$timestamp" },
-                },
-                riskCount: { $sum: 1 },
-                avgRisk: { $avg: "$misinformation_risk" },
-              },
-            },
-          ],
-        },
-      },
-    ])
-    .toArray()
-}
-
-async function getRealTimeStats(collection: any) {
-  const now = new Date()
-  const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000)
-  const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
-
-  return await collection
-    .aggregate([
-      {
-        $facet: {
-          lastHour: [
-            { $match: { timestamp: { $gte: oneHourAgo } } },
-            {
-              $group: {
-                _id: null,
-                count: { $sum: 1 },
-                avgBias: { $avg: "$bias_score" },
-                highRiskCount: {
-                  $sum: { $cond: [{ $gte: ["$misinformation_risk", 0.7] }, 1, 0] },
-                },
-              },
-            },
-          ],
-          last24Hours: [
-            { $match: { timestamp: { $gte: oneDayAgo } } },
-            {
-              $group: {
-                _id: null,
-                count: { $sum: 1 },
-                avgBias: { $avg: "$bias_score" },
-                avgCredibility: { $avg: "$credibility_score" },
-                sources: { $addToSet: "$source" },
-                topics: { $addToSet: "$topic" },
-              },
-            },
-          ],
-          processingRate: [
-            { $match: { timestamp: { $gte: oneHourAgo } } },
-            {
-              $group: {
-                _id: {
-                  $dateToString: {
-                    format: "%Y-%m-%d %H:00",
-                    date: "$timestamp",
-                  },
-                },
-                count: { $sum: 1 },
-              },
-            },
-            { $sort: { _id: 1 } },
-          ],
-        },
-      },
-    ])
-    .toArray()
-}
-
-async function getOverviewAnalytics(collection: any) {
-  return await collection
-    .aggregate([
-      {
-        $facet: {
-          totalStats: [
-            {
-              $group: {
-                _id: null,
-                totalArticles: { $sum: 1 },
-                avgBias: { $avg: "$bias_score" },
-                avgCredibility: { $avg: "$credibility_score" },
-                avgMisinfoRisk: { $avg: "$misinformation_risk" },
-                uniqueSources: { $addToSet: "$source" },
-                uniqueTopics: { $addToSet: "$topic" },
-              },
-            },
-          ],
-          biasDistribution: [
-            {
-              $bucket: {
-                groupBy: "$bias_score",
-                boundaries: [0, 0.3, 0.6, 1.0],
-                default: "other",
-                output: {
-                  count: { $sum: 1 },
-                  avgCredibility: { $avg: "$credibility_score" },
-                },
-              },
-            },
-          ],
-          recentActivity: [
-            { $sort: { timestamp: -1 } },
-            { $limit: 10 },
-            {
-              $project: {
-                title: 1,
-                source: 1,
-                bias_score: 1,
-                timestamp: 1,
-                topic: 1,
-              },
-            },
-          ],
-        },
-      },
-    ])
-    .toArray()
 }

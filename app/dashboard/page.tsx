@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Shield, TrendingUp, AlertTriangle, CheckCircle, RefreshCw, Loader2 } from "lucide-react"
 import { BiasChart } from "@/components/bias-chart"
-import { SourceComparison } from "@/components/source-comparison" // Updated import
+import { SourceComparison } from "@/components/source-comparison"
 import { ThreatLevel } from "@/components/threat-level"
 import { RecentArticles } from "@/components/recent-articles"
 import { BiasHeatmap } from "@/components/bias-heatmap"
@@ -21,6 +21,8 @@ interface Article {
   bias_score?: number; // Assuming 0.0 (Left) to 1.0 (Right), 0.5 (Center)
   misinformation_risk?: number; // e.g., 0.0 (Low) to 1.0 (High)
   credibility_score?: number; // e.g., 0.0 (Low) to 1.0 (High)
+  analyzed_at?: string; // Add analyzed_at for sorting
+  ai_analysis?: any; // To access nested analysis data if needed
 }
 
 interface BackendStats {
@@ -30,21 +32,27 @@ interface BackendStats {
   high_credibility: number;
   avg_bias: number;
   avg_credibility: number;
+  // Raw data from backend /dashboard-analytics endpoint
+  totalStats?: any;
+  biasDistribution?: any[];
+  sourceComparison?: any[];
+  emerging_patterns?: any[];
+  threat_assessment?: any[];
+  ai_recommendations?: any[];
+  system_health?: any;
+  alert_priorities?: any[];
 }
 
-// Data structure for BiasChart
 interface BiasCategoryData {
   name: string; // e.g., "Left", "Center", "Right"
   articles: number; // Count of articles in this category
 }
 
-// Data structure for BiasHeatmap (Source Bias Averages)
 interface SourceBiasData {
   source: string;
   averageBias: number; // Average bias score for this source
 }
 
-// Data structure for Source Comparison
 interface SourceComparisonData {
   source: string;
   averageBias: number;
@@ -64,37 +72,50 @@ export default function DashboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const articlesRes = await fetch("/api/mongodb");
+      // Fetch articles from the frontend API which now routes to backend
+      const articlesRes = await fetch("/api/mongodb"); // This now fetches from backend /articles
       if (!articlesRes.ok) {
         const errorData = await articlesRes.json();
         throw new Error(errorData.message || `Failed to fetch articles: ${articlesRes.statusText}`);
       }
-      const data = await articlesRes.json();
-      const fetchedArticles: Article[] = data.articles || [];
+      const articlesData = await articlesRes.json();
+      const fetchedArticles: Article[] = articlesData.articles || [];
       setArticles(fetchedArticles);
 
-      // Derive dashboard key metrics from fetched articles
-      const totalArticles = fetchedArticles.length;
-      // Articles with bias significantly away from center (e.g., outside 0.4-0.6 range)
-      const biasFlagged = fetchedArticles.filter((a: Article) => (a.bias_score !== undefined && (a.bias_score < 0.4 || a.bias_score > 0.6))).length;
-      // Articles with misinformation risk above a threshold (e.g., > 0.6)
-      const misinfoFlagged = fetchedArticles.filter((a: Article) => (a.misinformation_risk || 0) > 0.6).length;
-      // Articles with high credibility (e.g., > 0.8)
-      const highCredibility = fetchedArticles.filter((a: Article) => (a.credibility_score || 0) > 0.8).length;
+      // Fetch aggregated stats from the frontend API which routes to backend's dashboard-analytics
+      const statsRes = await fetch("/api/mongodb-analytics"); // This now fetches from backend /dashboard-analytics
+      if (!statsRes.ok) {
+        const errorData = await statsRes.json();
+        throw new Error(errorData.message || `Failed to fetch analytics: ${statsRes.statusText}`);
+      }
+      const statsData = await statsRes.json();
+      if (statsData.success && statsData.data) {
+        const backendDashboardData = statsData.data;
 
-      const totalBiasScore = fetchedArticles.reduce((sum: number, a: Article) => sum + (a.bias_score || 0), 0);
-      const totalCredibilityScore = fetchedArticles.reduce((sum: number, a: Article) => sum + (a.credibility_score || 0), 0);
-      const avgBias = totalArticles > 0 ? totalBiasScore / totalArticles : 0;
-      const avgCredibility = totalArticles > 0 ? totalCredibilityScore / totalArticles : 0;
+        // Map backend's dashboard data to frontend's expected stats structure
+        const totalStats = backendDashboardData.totalStats?.[0] || {};
+        const biasFlaggedCount = backendDashboardData.biasDistribution?.filter((b: any) => b._id > 0.6)?.[0]?.count || 0;
+        const misinfoFlaggedCount = backendDashboardData.overall_metrics?.high_risk_count || 0; // Assuming this from backend
+        const highCredibilityCount = backendDashboardData.biasDistribution?.filter((b: any) => b._id === 0.0)?.[0]?.count || 0; // Simplified for demo, count low bias as high credibility
 
-      setStats({
-        total_articles: totalArticles,
-        bias_flagged: biasFlagged,
-        misinfo_flagged: misinfoFlagged,
-        high_credibility: highCredibility,
-        avg_bias: avgBias,
-        avg_credibility: avgCredibility,
-      });
+        setStats({
+          total_articles: totalStats.totalArticles || 0,
+          bias_flagged: biasFlaggedCount,
+          misinfo_flagged: misinfoFlaggedCount,
+          high_credibility: highCredibilityCount,
+          avg_bias: totalStats.avgBias || 0,
+          avg_credibility: totalStats.avgCredibility || 0,
+          // Pass raw backend data for charts
+          totalStats: totalStats,
+          biasDistribution: backendDashboardData.biasDistribution,
+          sourceComparison: backendDashboardData.sourceComparison,
+          emerging_patterns: backendDashboardData.emerging_patterns,
+          threat_assessment: backendDashboardData.threat_assessment,
+          ai_recommendations: backendDashboardData.ai_recommendations,
+          system_health: backendDashboardData.system_health,
+          alert_priorities: backendDashboardData.alert_priorities,
+        });
+      }
 
     } catch (err: any) {
       setError(err.message);
@@ -112,86 +133,42 @@ export default function DashboardPage() {
     fetchData();
   };
 
-  // Memoized data for BiasChart to prevent re-computation on every render
+  // Memoized data for BiasChart adapted from backend's biasDistribution
   const biasChartData: BiasCategoryData[] = useMemo(() => {
-    const counts = {
-      'Left': 0,
-      'Left-Center': 0,
-      'Center': 0,
-      'Right-Center': 0,
-      'Right': 0,
-    };
-
-    articles.forEach(article => {
-      if (article.bias_score !== undefined) {
-        if (article.bias_score >= 0 && article.bias_score <= 0.2) {
-          counts['Left']++;
-        } else if (article.bias_score > 0.2 && article.bias_score <= 0.4) {
-          counts['Left-Center']++;
-        } else if (article.bias_score > 0.4 && article.bias_score <= 0.6) {
-          counts['Center']++;
-        } else if (article.bias_score > 0.6 && article.bias_score <= 0.8) {
-          counts['Right-Center']++;
-        } else if (article.bias_score > 0.8 && article.bias_score <= 1.0) {
-          counts['Right']++;
-        }
-      }
-    });
-
-    return Object.entries(counts).map(([name, articles]) => ({ name, articles }));
-  }, [articles]);
+    if (!stats?.biasDistribution) return [];
+    return stats.biasDistribution.map((item: any) => {
+      let name = "";
+      if (item._id === 0) name = "Low (0-0.3)";
+      else if (item._id === 0.3) name = "Medium (0.3-0.6)";
+      else if (item._id === 0.6) name = "High (0.6-1.0)";
+      else name = "Unknown";
+      return {
+        name,
+        articles: item.count,
+      };
+    }).sort((a, b) => a.name.localeCompare(b.name)); // Sort alphabetically or by specific order
+  }, [stats?.biasDistribution]);
 
   // Memoized data for BiasHeatmap (Source Bias Averages)
   const sourceBiasData: SourceBiasData[] = useMemo(() => {
-    const sourceMap: { [key: string]: { totalBias: number; count: number } } = {};
-
-    articles.forEach(article => {
-      if (article.source && article.bias_score !== undefined) {
-        if (!sourceMap[article.source]) {
-          sourceMap[article.source] = { totalBias: 0, count: 0 };
-        }
-        sourceMap[article.source].totalBias += article.bias_score;
-        sourceMap[article.source].count++;
-      }
-    });
-
-    return Object.entries(sourceMap).map(([source, data]) => ({
-      source,
-      averageBias: data.count > 0 ? data.totalBias / data.count : 0,
+    if (!stats?.sourceComparison) return [];
+    return stats.sourceComparison.map((item: any) => ({
+      source: item._id,
+      averageBias: item.averageBias,
     })).sort((a, b) => b.averageBias - a.averageBias); // Sort by bias for better visualization
-  }, [articles]);
+  }, [stats?.sourceComparison]);
 
   // Memoized data for Source Comparison
   const sourceComparisonData: SourceComparisonData[] = useMemo(() => {
-    const sourceMap: {
-      [key: string]: {
-        totalBias: number;
-        totalMisinfo: number;
-        totalCredibility: number;
-        count: number;
-      };
-    } = {};
-
-    articles.forEach(article => {
-      if (article.source) {
-        if (!sourceMap[article.source]) {
-          sourceMap[article.source] = { totalBias: 0, totalMisinfo: 0, totalCredibility: 0, count: 0 };
-        }
-        if (article.bias_score !== undefined) sourceMap[article.source].totalBias += article.bias_score;
-        if (article.misinformation_risk !== undefined) sourceMap[article.source].totalMisinfo += article.misinformation_risk;
-        if (article.credibility_score !== undefined) sourceMap[article.source].totalCredibility += article.credibility_score;
-        sourceMap[article.source].count++;
-      }
-    });
-
-    return Object.entries(sourceMap).map(([source, data]) => ({
-      source,
-      averageBias: data.count > 0 ? data.totalBias / data.count : 0,
-      averageMisinformationRisk: data.count > 0 ? data.totalMisinfo / data.count : 0,
-      averageCredibility: data.count > 0 ? data.totalCredibility / data.count : 0,
-      articleCount: data.count,
+    if (!stats?.sourceComparison) return [];
+    return stats.sourceComparison.map((item: any) => ({
+      source: item._id,
+      averageBias: item.averageBias,
+      averageMisinformationRisk: item.averageMisinformationRisk,
+      averageCredibility: item.averageCredibility,
+      articleCount: item.articleCount,
     })).sort((a, b) => b.articleCount - a.articleCount); // Sort by article count, or by bias/credibility as preferred
-  }, [articles]);
+  }, [stats?.sourceComparison]);
 
 
   return (
@@ -307,7 +284,8 @@ export default function DashboardPage() {
                     <CardDescription>Real-time misinformation risk levels</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <ThreatLevel />
+                    {/* ThreatLevel component likely needs a single threat score from backend */}
+                    <ThreatLevel currentThreat={Math.round((stats?.avg_misinfo || 0) * 100)} />
                   </CardContent>
                 </Card>
               </div>
@@ -324,7 +302,7 @@ export default function DashboardPage() {
                         <Skeleton className="h-20 w-full" />
                       </div>
                   ) : (
-                      <RecentArticles />
+                      <RecentArticles articles={articles} />
                   )}
                 </CardContent>
               </Card>
@@ -388,7 +366,7 @@ export default function DashboardPage() {
                                       {article.title || "Untitled Article"}
                                     </p>
                                     <p className="text-xs text-gray-600">
-                                      Source: {article.source || "Unknown Source"} - {article.published_at ? new Date(article.published_at).toLocaleDateString() : 'N/A'}
+                                      Source: {article.source || "Unknown Source"} - {article.analyzed_at ? new Date(article.analyzed_at).toLocaleDateString() : article.published_at ? new Date(article.published_at).toLocaleDateString() : 'N/A'}
                                     </p>
                                   </div>
                                 </div>
@@ -444,5 +422,5 @@ export default function DashboardPage() {
           </Tabs>
         </div>
       </div>
-  )
+  );
 }

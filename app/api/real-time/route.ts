@@ -24,25 +24,34 @@ export async function GET(request: NextRequest) {
             const interval = setInterval(async () => {
                 try {
                     // Fetch latest data from backend's dashboard analytics and articles endpoints
-                    const [articlesResponse, analyticsResponse, alertsResponse] = await Promise.all([
-                        fetch(`${BACKEND_BASE_URL}/articles?limit=5&sort_by=analyzed_at&sort_order=desc`),
-                        fetch(`${BACKEND_BASE_URL}/dashboard-analytics`),
-                        fetch(`${BACKEND_BASE_URL}/articles/high-bias?limit=3&min_score=0.7`), // Using high-bias as a proxy for alerts
+                    const [articlesResponse, analyticsResponse, highBiasArticlesResponse, misinformationRiskArticlesResponse] = await Promise.all([
+                        fetch(`${BACKEND_BASE_URL}/articles?limit=5&sort_by=analyzed_at&sort_order=desc`), // Fetch recent analyzed articles
+                        fetch(`${BACKEND_BASE_URL}/dashboard-analytics`), // Fetch overall analytics
+                        fetch(`${BACKEND_BASE_URL}/articles/high-bias?limit=3&min_score=0.7`), // Fetch high bias articles for alerts
+                        fetch(`${BACKEND_BASE_URL}/articles/misinformation-risk?limit=3&min_risk=0.6`), // Fetch misinformation risk articles for alerts
                     ]);
 
-                    const [articlesData, analyticsData, alertsData] = await Promise.all([
+                    const [articlesData, analyticsData, highBiasArticlesData, misinformationRiskArticlesData] = await Promise.all([
                         articlesResponse.ok ? articlesResponse.json() : { articles: [] },
                         analyticsResponse.ok ? analyticsResponse.json() : { data: {} },
-                        alertsResponse.ok ? alertsResponse.json() : { articles: [] },
+                        highBiasArticlesResponse.ok ? highBiasArticlesResponse.json() : { articles: [] },
+                        misinformationRiskArticlesResponse.ok ? misinformationRiskArticlesResponse.json() : { articles: [] },
                     ]);
 
                     const systemStats = analyticsData.data?.totalStats?.[0] || {};
                     const recentArticles = articlesData.articles || [];
-                    const activeAlerts = alertsData.articles?.map((article: any) => ({
+                    const highBiasAlerts = highBiasArticlesData.articles?.map((article: any) => ({
                         ...article,
-                        alert_type: "high_bias", // Simplified alert type
+                        alert_type: "high_bias",
                         severity: "high",
                     })) || [];
+                    const misinformationAlerts = misinformationRiskArticlesData.articles?.map((article: any) => ({
+                        ...article,
+                        alert_type: "misinformation_risk",
+                        severity: "critical",
+                    })) || [];
+
+                    const activeAlerts = [...highBiasAlerts, ...misinformationAlerts];
 
 
                     const update = {
@@ -56,7 +65,7 @@ export async function GET(request: NextRequest) {
                                 avg_credibility: systemStats.avgCredibility || 0,
                                 unique_sources: systemStats.uniqueSources?.length || 0,
                                 unique_topics: systemStats.uniqueTopics?.length || 0,
-                                high_risk_count: analyticsData.data?.overall_metrics?.high_risk_count || 0,
+                                high_risk_count: analyticsData.data?.overall_metrics?.high_risk_count || 0, // Ensure this exists from backend
                             },
                             alerts: activeAlerts,
                             processing_pipeline: {
@@ -69,9 +78,9 @@ export async function GET(request: NextRequest) {
                         timestamp: new Date().toISOString(),
                         stats: {
                             total_processed: systemStats.totalArticles || 0,
-                            bias_detected: analyticsData.data?.biasDistribution?.reduce((sum: number, b: any) => sum + b.count, 0) || 0,
-                            misinformation_flagged: analyticsData.data?.overall_metrics?.high_risk_count || 0,
-                            high_credibility: analyticsData.data?.biasDistribution?.filter((b: any) => b._id === 1.0)?.[0]?.count || 0, // Simplified high credibility count
+                            bias_detected: analyticsData.data?.biasDistribution?.reduce((sum: number, b: any) => sum + b.count, 0) || 0, // Sum of all bias categories
+                            misinformation_flagged: analyticsData.data?.overall_metrics?.high_risk_count || 0, // Use high_risk_count as proxy
+                            high_credibility: analyticsData.data?.totalStats?.[0]?.avgCredibility ? Math.round(analyticsData.data.totalStats[0].avgCredibility * systemStats.totalArticles) : 0, // Simplified, rough estimate
                             processing_rate: Math.floor(Math.random() * 50) + 850, // Simulated rate
                             vector_searches: Math.floor(Math.random() * 100) + 500, // Simulated count
                         },
@@ -93,16 +102,26 @@ export async function GET(request: NextRequest) {
                     }
 
                     // Simulate vector search activity
+                    // Note: Backend's vector-search endpoint is a POST, not a GET for activity feed.
+                    // We can simulate some recent search activity or fetch from a dedicated backend endpoint if it existed.
+                    const vectorSearchActivity = recentArticles.slice(0, Math.min(recentArticles.length, 3)).map((article: any) => ({
+                        title: article.title,
+                        topic: article.topic,
+                        bias_score: article.bias_score,
+                        credibility_score: article.credibility_score,
+                        timestamp: article.analyzed_at || article.published_at,
+                        processing_model: article.ai_analysis?.model_version || "unknown",
+                    }));
                     const vectorUpdate = {
                         type: "vector_search_activity",
-                        data: recentArticles.slice(0, Math.min(recentArticles.length, 3)), // Use recent articles for vector search activity
+                        data: vectorSearchActivity,
                         timestamp: new Date().toISOString(),
                     };
                     const vectorData = `data: ${JSON.stringify(vectorUpdate)}\n\n`;
                     controller.enqueue(encoder.encode(vectorData));
 
                 } catch (error) {
-                    console.error("Real-time update error:", error);
+                    console.error("Real-time update error (Frontend Route):", error);
 
                     // Send error notification
                     const errorUpdate = {

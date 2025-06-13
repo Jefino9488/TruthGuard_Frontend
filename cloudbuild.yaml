@@ -1,25 +1,8 @@
 steps:
-  # Access secrets and set them as environment variables
-  - name: 'gcr.io/cloud-builders/gcloud'
-    entrypoint: 'bash'
-    args:
-      - '-c'
-      - |
-        echo "$$MONGODB_URI" > /workspace/mongodb_uri
-        echo "$$MONGODB_DB" > /workspace/mongodb_db
-        echo "$$GOOGLE_AI_API_KEY" > /workspace/google_ai_key
-    secretEnv: ['MONGODB_URI', 'MONGODB_DB', 'GOOGLE_AI_API_KEY']
-
   # Build the container image
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
-      - '--build-arg'
-      - 'MONGODB_URI=$(cat /workspace/mongodb_uri)'
-      - '--build-arg'
-      - 'MONGODB_DB=$(cat /workspace/mongodb_db)'
-      - '--build-arg'
-      - 'GOOGLE_AI_API_KEY=$(cat /workspace/google_ai_key)'
       - '--build-arg'
       - 'NEXT_PUBLIC_BASE_URL=https://truthguard-frontend-377368788327.asia-south1.run.app'
       - '-t'
@@ -28,6 +11,11 @@ steps:
       - 'asia-south1-docker.pkg.dev/${PROJECT_ID}/truthguard-repo/truthguard-frontend:latest'
       - '.'
     id: 'Build'
+    secretEnv: ['MONGODB_URI', 'MONGODB_DB', 'GOOGLE_AI_API_KEY']
+    env:
+      - 'MONGODB_URI=$MONGODB_URI'
+      - 'MONGODB_DB=$MONGODB_DB'
+      - 'GOOGLE_AI_API_KEY=$GOOGLE_AI_API_KEY'
 
   # Push the container images to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
@@ -66,18 +54,17 @@ steps:
       - '--concurrency'
       - '80'
       - '--allow-unauthenticated'
-      - '--set-secrets'
-      - 'MONGODB_URI=MONGODB_URI:latest,MONGODB_DB=MONGODB_DB:latest,GOOGLE_AI_API_KEY=GOOGLE_AI_API_KEY:latest'
+      - '--set-secrets=MONGODB_URI=MONGODB_URI:latest,MONGODB_DB=MONGODB_DB:latest,GOOGLE_AI_API_KEY=GOOGLE_AI_API_KEY:latest'
     id: 'Deploy'
 
 availableSecrets:
   secretManager:
-    - versionName: projects/${PROJECT_ID}/secrets/MONGODB_URI/versions/latest
-      env: 'MONGODB_URI'
-    - versionName: projects/${PROJECT_ID}/secrets/MONGODB_DB/versions/latest
-      env: 'MONGODB_DB'
-    - versionName: projects/${PROJECT_ID}/secrets/GOOGLE_AI_API_KEY/versions/latest
-      env: 'GOOGLE_AI_API_KEY'
+    MONGODB_URI:
+      versionName: projects/${PROJECT_ID}/secrets/MONGODB_URI/versions/latest
+    MONGODB_DB:
+      versionName: projects/${PROJECT_ID}/secrets/MONGODB_DB/versions/latest
+    GOOGLE_AI_API_KEY:
+      versionName: projects/${PROJECT_ID}/secrets/GOOGLE_AI_API_KEY/versions/latest
 
 images:
   - 'asia-south1-docker.pkg.dev/${PROJECT_ID}/truthguard-repo/truthguard-frontend:$COMMIT_SHA'

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react"
 import * as d3 from "d3"
+import { sankey, sankeyLinkHorizontal } from 'd3-sankey'
 
 interface Node {
   id: string
@@ -73,8 +74,7 @@ export function NarrativeFlow() {
       .attr("height", "100%")
 
     // Create a Sankey diagram
-    const sankey = d3
-      .sankey()
+    const sankeyGenerator = sankey()
       .nodeId((d: any) => d.id)
       .nodeWidth(15)
       .nodePadding(10)
@@ -84,7 +84,7 @@ export function NarrativeFlow() {
       ])
 
     // Format the data for Sankey
-    const sankeyData = sankey({
+    const sankeyData = sankeyGenerator({
       nodes: data.nodes.map((d) => Object.assign({}, d)),
       links: data.links.map((d) => Object.assign({}, d)),
     })
@@ -99,7 +99,7 @@ export function NarrativeFlow() {
       .data(sankeyData.links)
       .enter()
       .append("path")
-      .attr("d", d3.sankeyLinkHorizontal())
+      .attr("d", sankeyLinkHorizontal())
       .attr("stroke", (d: any) => color(d.source.group.toString()))
       .attr("stroke-width", (d: any) => Math.max(1, d.width))
       .attr("stroke-opacity", 0.5)

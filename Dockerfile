@@ -1,37 +1,36 @@
-# Multi-stage build for TruthGuard
-FROM node:18-alpine AS builder
+# Frontend Dockerfile
+FROM node:18-alpine AS build
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
-RUN npm ci --only=production
+# Copy package files first
+COPY package.json pnpm-lock.yaml ./
 
-# Copy source code
+# Install dependencies
+RUN npm install -g pnpm && pnpm install
+
+# Set environment variables for build
+ENV MONGODB_URI=mongodb://mongodb:27017/truthguard
+ENV MONGODB_DB=truthguard
+
+# Copy the rest of the application code
 COPY . .
 
 # Build the application
-RUN npm run build
+RUN pnpm build
 
-# Production stage
+# Production image
 FROM node:18-alpine AS runner
-
 WORKDIR /app
 
-# Create non-root user
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+ENV NODE_ENV=production
+ENV MONGODB_URI=mongodb://mongodb:27017/truthguard
+ENV MONGODB_DB=truthguard
 
-# Copy built application
-COPY --from=builder /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-
-USER nextjs
+COPY --from=build /app/.next ./.next
+COPY --from=build /app/public ./public
+COPY --from=build /app/package.json ./package.json
+COPY --from=build /app/node_modules ./node_modules
 
 EXPOSE 3000
-
-ENV PORT 3000
-ENV HOSTNAME "0.0.0.0"
-
-CMD ["node", "server.js"]
+CMD ["npm", "start"]

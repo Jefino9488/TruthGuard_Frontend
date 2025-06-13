@@ -1,36 +1,44 @@
-# Frontend Dockerfile
-FROM node:18-alpine AS build
-
+# 1. Builder Stage: Build the application
+FROM node:20-slim AS builder
 WORKDIR /app
 
-# Copy package files first
+# Install pnpm
+RUN npm install -g pnpm
+
+# Copy dependency files
 COPY package.json pnpm-lock.yaml ./
 
 # Install dependencies
-RUN npm install -g pnpm && pnpm install
+RUN pnpm install --frozen-lockfile
 
-# Set environment variables for build
-ENV MONGODB_URI=mongodb://mongodb:27017/truthguard
-ENV MONGODB_DB=truthguard
-
-# Copy the rest of the application code
+# Copy the rest of the source code and build the application
 COPY . .
-
-# Build the application
 RUN pnpm build
 
-# Production image
-FROM node:18-alpine AS runner
+# 2. Runner Stage: Create the final, small image
+FROM node:20-slim AS runner
 WORKDIR /app
 
+# Set production environment
 ENV NODE_ENV=production
-ENV MONGODB_URI=mongodb://mongodb:27017/truthguard
-ENV MONGODB_DB=truthguard
+# The PORT will be set by Cloud Run, so no need to define it here.
 
-COPY --from=build /app/.next ./.next
-COPY --from=build /app/public ./public
-COPY --from=build /app/package.json ./package.json
-COPY --from=build /app/node_modules ./node_modules
+# Create a non-root user for security
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
 
-EXPOSE 3000
-CMD ["npm", "start"]
+# Copy the standalone output from the builder stage
+# This includes only the necessary files to run the app
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+# Switch to the non-root user
+USER nextjs
+
+# Expose the port Cloud Run will use
+EXPOSE 8080
+
+# The standalone output creates a 'server.js' file.
+# This is the correct way to start the server in this configuration.
+CMD ["node", "server.js"]

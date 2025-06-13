@@ -1,88 +1,62 @@
-# 1. Dependencies Stage: Install packages
-FROM node:20-slim AS deps
-
-# Define build arguments
-ARG MONGODB_URI
-ARG MONGODB_DB
-ARG GOOGLE_AI_API_KEY
-ARG NEXT_PUBLIC_BASE_URL
-
-# Set environment variables for deps stage
-ENV MONGODB_URI=${MONGODB_URI}
-ENV MONGODB_DB=${MONGODB_DB}
-ENV GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY}
-ENV NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL}
-
+# 1. Base Stage: Install pnpm once
+FROM node:20-slim AS base
 WORKDIR /app
-
-# Install pnpm globally
 RUN npm install -g pnpm
 
-# Copy package files
+# 2. Dependencies Stage: Install dependencies
+FROM base AS deps
 COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --no-frozen-lockfile
+# Use --frozen-lockfile for reproducible builds.
+# Use --prod=false to ensure devDependencies (like typescript, postcss) are available for the build stage.
+RUN pnpm install --frozen-lockfile --prod=false
 
-# 2. Builder Stage: Build the application
-FROM node:20-slim AS builder
+# 3. Builder Stage: Build the application
+FROM base AS builder
 WORKDIR /app
 
-# Pass build arguments to builder stage
+# Copy source code and dependencies
+COPY . .
+COPY --from=deps /app/node_modules ./node_modules
+
+# Define build-time arguments required for the build process
 ARG MONGODB_URI
 ARG MONGODB_DB
 ARG GOOGLE_AI_API_KEY
 ARG NEXT_PUBLIC_BASE_URL
 
-# Set environment variables for builder stage
+# Set environment variables for the build process
 ENV MONGODB_URI=${MONGODB_URI}
 ENV MONGODB_DB=${MONGODB_DB}
 ENV GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY}
 ENV NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL}
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
-
-# Install pnpm in builder stage
-RUN npm install -g pnpm
-
-# Copy node_modules and source
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
 
 # Build the application
 RUN pnpm build
 
-# 3. Runner Stage: Create the final, small image
+# 4. Runner Stage: Create the final, small production image
 FROM node:20-slim AS runner
 WORKDIR /app
 
-# Pass build arguments to runner stage
-ARG MONGODB_URI
-ARG MONGODB_DB
-ARG GOOGLE_AI_API_KEY
-ARG NEXT_PUBLIC_BASE_URL
-
-# Set environment variables for production
 ENV NODE_ENV=production
 ENV PORT=8080
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV MONGODB_URI=${MONGODB_URI}
-ENV MONGODB_DB=${MONGODB_DB}
-ENV GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY}
-ENV NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL}
+# Note: Runtime environment variables (MONGODB_URI, etc.) are injected by Cloud Run via --set-secrets,
+# so they are not needed here.
 
-# Create non-root user
+# Create a non-root user for security
 RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs && \
-    chown -R nextjs:nodejs /app
+    adduser --system --uid 1001 nextjs
 
-# Copy only necessary files
+# Copy only the necessary standalone output from the builder stage
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
-# Use non-root user
+# Use the non-root user
 USER nextjs
 
-EXPOSE ${PORT}
+EXPOSE 8080
 
-# Use the standalone output
 CMD ["node", "server.js"]

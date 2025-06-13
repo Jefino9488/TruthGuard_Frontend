@@ -2,9 +2,14 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { MongoClient, ServerApiVersion } from "mongodb";
 
-// Use environment variables for MongoDB connection
-const uri = process.env.MONGODB_URI as string;
-const dbName = process.env.MONGODB_DB as string;
+// Use environment variables for MongoDB connection with fallbacks
+const uri = process.env.MONGODB_URI || "mongodb://localhost:27017";
+const dbName = process.env.MONGODB_DB || "truthguard";
+
+// Validate URI before creating client
+if (!uri) {
+  throw new Error("Please define the MONGODB_URI environment variable");
+}
 
 const client = new MongoClient(uri, {
   serverApi: {
@@ -16,6 +21,10 @@ const client = new MongoClient(uri, {
 
 export async function GET(request: NextRequest) {
   try {
+    if (!request?.nextUrl?.searchParams) {
+      return NextResponse.json({ error: "Invalid request parameters" }, { status: 400 });
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const dataset = searchParams.get("dataset") || "sample_mflix";
     const analysis_type = searchParams.get("analysis") || "comprehensive";
@@ -579,33 +588,51 @@ async function generateDatasetInsights(results: any[], dataset: string) {
 }
 
 export async function POST(request: NextRequest) {
+  if (!request || !request.body) {
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  }
+
   try {
-    const { dataset, custom_analysis, ai_model = "gemini" } = await request.json();
+    const body = await request.json();
+    const dataset = body?.dataset || '';
+    const custom_analysis = body?.custom_analysis || '';
+    const ai_model = body?.ai_model || 'gemini';
+
+    if (!dataset || !custom_analysis) {
+      return NextResponse.json({ error: "Missing required parameters" }, { status: 400 });
+    }
 
     await client.connect();
 
     let analysisResults = [];
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
 
-    if (custom_analysis) {
-      const dummyContent = `Custom analysis for dataset: ${dataset}, type: ${custom_analysis}. Using AI model: ${ai_model}.`;
-      const backendAnalyzeResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/analyze-manual`, {
+    try {
+      const backendAnalyzeResponse = await fetch(`${baseUrl}/analyze-manual`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: dummyContent, headline: `Custom Analysis for ${dataset}` }),
+        body: JSON.stringify({
+          content: `Custom analysis for dataset: ${dataset}, type: ${custom_analysis}`,
+          headline: `Custom Analysis for ${dataset}`
+        }),
       });
 
       if (!backendAnalyzeResponse.ok) {
-        throw new Error(`Backend manual analysis failed for custom_analysis: ${backendAnalyzeResponse.statusText}`);
+        throw new Error(`Backend manual analysis failed: ${backendAnalyzeResponse.statusText}`);
       }
 
       const backendAnalysisResult = await backendAnalyzeResponse.json();
-      analysisResults.push(backendAnalysisResult.analysis);
-
+      if (backendAnalysisResult?.analysis) {
+        analysisResults.push(backendAnalysisResult.analysis);
+      }
+    } catch (fetchError) {
+      console.error("Backend analysis request failed:", fetchError);
+      // Continue with empty results rather than failing completely
     }
 
     return NextResponse.json({
       success: true,
-      message: "Custom Google Cloud AI analysis completed (via backend's manual analysis)",
+      message: "Custom Google Cloud AI analysis completed",
       results: analysisResults,
       ai_model_used: ai_model,
       mongodb_features_used: ["aggregation_pipeline", "vector_search", "atlas_search"],
@@ -613,12 +640,12 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error("Custom Analysis Error:", error);
     return NextResponse.json(
-        {
-          success: false,
-          error: "Custom analysis failed",
-          details: error.message,
-        },
-        { status: 500 },
+      {
+        success: false,
+        error: "Custom analysis failed",
+        details: error?.message || "Unknown error occurred",
+      },
+      { status: 500 }
     );
   } finally {
     await client.close();

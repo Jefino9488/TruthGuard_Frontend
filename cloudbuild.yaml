@@ -15,10 +15,6 @@ steps:
           .
     id: 'Build'
     secretEnv: ['MONGODB_URI', 'MONGODB_DB', 'GOOGLE_AI_API_KEY']
-    env:
-      - 'MONGODB_URI=$MONGODB_URI'
-      - 'MONGODB_DB=$MONGODB_DB'
-      - 'GOOGLE_AI_API_KEY=$GOOGLE_AI_API_KEY'
 
   # Push the container images to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'

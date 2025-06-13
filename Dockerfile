@@ -6,19 +6,15 @@ RUN npm install -g pnpm
 # 2. Dependencies Stage: Install dependencies
 FROM base AS deps
 COPY package.json pnpm-lock.yaml ./
-# Use --frozen-lockfile for reproducible builds.
-# Use --prod=false to ensure devDependencies (like typescript, postcss) are available for the build stage.
 RUN pnpm install --frozen-lockfile --prod=false
 
 # 3. Builder Stage: Build the application
 FROM base AS builder
 WORKDIR /app
-
-# Copy source code and dependencies
 COPY . .
 COPY --from=deps /app/node_modules ./node_modules
 
-# Define build-time arguments required for the build process
+# Define build-time arguments required for the 'pnpm build' command
 ARG MONGODB_URI
 ARG MONGODB_DB
 ARG GOOGLE_AI_API_KEY
@@ -42,8 +38,6 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=8080
 ENV NEXT_TELEMETRY_DISABLED=1
-# Note: Runtime environment variables (MONGODB_URI, etc.) are injected by Cloud Run via --set-secrets,
-# so they are not needed here.
 
 # Create a non-root user for security
 RUN addgroup --system --gid 1001 nodejs && \

@@ -19,15 +19,20 @@ ENV MONGODB_URI=$MONGODB_URI
 ENV MONGODB_DB=$MONGODB_DB
 ENV GOOGLE_AI_API_KEY=$GOOGLE_AI_API_KEY
 ENV NEXT_PUBLIC_BASE_URL=$NEXT_PUBLIC_BASE_URL
-ENV NEXT_TELEMETRY_DISABLED=1 NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_ENV=production
+ENV HOSTNAME=0.0.0.0
+ENV PORT=8080
 
 RUN pnpm build
 
 FROM node:20-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+ENV HOSTNAME=0.0.0.0
 ENV PORT=8080
 
+# Copy necessary files
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
@@ -38,4 +43,8 @@ ENV GOOGLE_AI_API_KEY=$GOOGLE_AI_API_KEY
 ENV NEXT_PUBLIC_BASE_URL=$NEXT_PUBLIC_BASE_URL
 
 EXPOSE 8080
+
+# Ensure proper permissions
+RUN chmod -R 755 /app
+
 CMD ["node", "server.js"]

@@ -1,21 +1,18 @@
 steps:
   # Build the container image
   - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
     args:
-      - 'build'
-      - '--build-arg'
-      - 'NEXT_PUBLIC_BASE_URL=https://truthguard-frontend-377368788327.asia-south1.run.app'
-      - '--build-arg'
-      - 'MONGODB_URI=${MONGODB_URI}'
-      - '--build-arg'
-      - 'MONGODB_DB=${MONGODB_DB}'
-      - '--build-arg'
-      - 'GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY}'
-      - '-t'
-      - 'asia-south1-docker.pkg.dev/${PROJECT_ID}/truthguard-repo/truthguard-frontend:$COMMIT_SHA'
-      - '-t'
-      - 'asia-south1-docker.pkg.dev/${PROJECT_ID}/truthguard-repo/truthguard-frontend:latest'
-      - '.'
+      - '-c'
+      - |
+        docker build \
+          --build-arg="NEXT_PUBLIC_BASE_URL=https://truthguard-frontend-377368788327.asia-south1.run.app" \
+          --build-arg="MONGODB_URI=$$MONGODB_URI" \
+          --build-arg="MONGODB_DB=$$MONGODB_DB" \
+          --build-arg="GOOGLE_AI_API_KEY=$$GOOGLE_AI_API_KEY" \
+          -t "asia-south1-docker.pkg.dev/${PROJECT_ID}/truthguard-repo/truthguard-frontend:$COMMIT_SHA" \
+          -t "asia-south1-docker.pkg.dev/${PROJECT_ID}/truthguard-repo/truthguard-frontend:latest" \
+          .
     id: 'Build'
     secretEnv: ['MONGODB_URI', 'MONGODB_DB', 'GOOGLE_AI_API_KEY']
     env:

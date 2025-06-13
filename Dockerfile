@@ -25,21 +25,17 @@ RUN pnpm build
 
 FROM node:20-slim AS runner
 WORKDIR /app
-ARG MONGODB_URI
-ARG MONGODB_DB
-ARG GOOGLE_AI_API_KEY
-ARG NEXT_PUBLIC_BASE_URL
-ENV NODE_ENV=production PORT=8080 NEXT_TELEMETRY_DISABLED=1
+ENV NODE_ENV=production
+ENV PORT=8080
+
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+
 ENV MONGODB_URI=$MONGODB_URI
 ENV MONGODB_DB=$MONGODB_DB
 ENV GOOGLE_AI_API_KEY=$GOOGLE_AI_API_KEY
 ENV NEXT_PUBLIC_BASE_URL=$NEXT_PUBLIC_BASE_URL
-
-RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
-USER nextjs
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
 EXPOSE 8080
 CMD ["node", "server.js"]

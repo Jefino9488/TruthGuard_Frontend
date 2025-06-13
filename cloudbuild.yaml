@@ -14,12 +14,6 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
-      - '--cache-from'
-      - 'asia-south1-docker.pkg.dev/${PROJECT_ID}/truthguard-repo/truthguard-frontend:latest'
-      - '-t'
-      - 'asia-south1-docker.pkg.dev/${PROJECT_ID}/truthguard-repo/truthguard-frontend:$COMMIT_SHA'
-      - '-t'
-      - 'asia-south1-docker.pkg.dev/${PROJECT_ID}/truthguard-repo/truthguard-frontend:latest'
       - '--build-arg'
       - 'MONGODB_URI=$(cat /workspace/mongodb_uri)'
       - '--build-arg'
@@ -27,7 +21,11 @@ steps:
       - '--build-arg'
       - 'GOOGLE_AI_API_KEY=$(cat /workspace/google_ai_key)'
       - '--build-arg'
-      - 'NEXT_PUBLIC_BASE_URL=http://backend:5000'
+      - 'NEXT_PUBLIC_BASE_URL=https://truthguard-frontend-377368788327.asia-south1.run.app'
+      - '-t'
+      - 'asia-south1-docker.pkg.dev/${PROJECT_ID}/truthguard-repo/truthguard-frontend:$COMMIT_SHA'
+      - '-t'
+      - 'asia-south1-docker.pkg.dev/${PROJECT_ID}/truthguard-repo/truthguard-frontend:latest'
       - '.'
     id: 'Build'
 
@@ -68,15 +66,9 @@ steps:
       - '--concurrency'
       - '80'
       - '--allow-unauthenticated'
-      - '--set-env-vars'
-      - 'NODE_ENV=production,NEXT_TELEMETRY_DISABLED=1'
       - '--set-secrets'
       - 'MONGODB_URI=MONGODB_URI:latest,MONGODB_DB=MONGODB_DB:latest,GOOGLE_AI_API_KEY=GOOGLE_AI_API_KEY:latest'
     id: 'Deploy'
-
-options:
-  logging: CLOUD_LOGGING_ONLY
-  dynamicSubstitutions: true
 
 availableSecrets:
   secretManager:
@@ -90,5 +82,9 @@ availableSecrets:
 images:
   - 'asia-south1-docker.pkg.dev/${PROJECT_ID}/truthguard-repo/truthguard-frontend:$COMMIT_SHA'
   - 'asia-south1-docker.pkg.dev/${PROJECT_ID}/truthguard-repo/truthguard-frontend:latest'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  dynamicSubstitutions: true
 
 timeout: '1800s'

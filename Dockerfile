@@ -7,7 +7,7 @@ ARG MONGODB_DB
 ARG GOOGLE_AI_API_KEY
 ARG NEXT_PUBLIC_BASE_URL
 
-# Set environment variables
+# Set environment variables for deps stage
 ENV MONGODB_URI=${MONGODB_URI}
 ENV MONGODB_DB=${MONGODB_DB}
 ENV GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY}
@@ -26,6 +26,20 @@ RUN pnpm install --no-frozen-lockfile
 FROM node:20-slim AS builder
 WORKDIR /app
 
+# Pass build arguments to builder stage
+ARG MONGODB_URI
+ARG MONGODB_DB
+ARG GOOGLE_AI_API_KEY
+ARG NEXT_PUBLIC_BASE_URL
+
+# Set environment variables for builder stage
+ENV MONGODB_URI=${MONGODB_URI}
+ENV MONGODB_DB=${MONGODB_DB}
+ENV GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY}
+ENV NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL}
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_ENV=production
+
 # Install pnpm in builder stage
 RUN npm install -g pnpm
 
@@ -34,18 +48,26 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Build the application
-ENV NEXT_TELEMETRY_DISABLED 1
-ENV NODE_ENV=production
 RUN pnpm build
 
 # 3. Runner Stage: Create the final, small image
 FROM node:20-slim AS runner
 WORKDIR /app
 
-# Install only production dependencies
+# Pass build arguments to runner stage
+ARG MONGODB_URI
+ARG MONGODB_DB
+ARG GOOGLE_AI_API_KEY
+ARG NEXT_PUBLIC_BASE_URL
+
+# Set environment variables for production
 ENV NODE_ENV=production
 ENV PORT=8080
-ENV NEXT_TELEMETRY_DISABLED 1
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV MONGODB_URI=${MONGODB_URI}
+ENV MONGODB_DB=${MONGODB_DB}
+ENV GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY}
+ENV NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL}
 
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs && \

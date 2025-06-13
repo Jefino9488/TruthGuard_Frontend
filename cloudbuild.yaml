@@ -4,7 +4,7 @@ steps:
     args:
       - 'build'
       - '-t'
-      - 'europe-west1-docker.pkg.dev/${PROJECT_ID}/truthguard-repo/truthguard-frontend:$COMMIT_SHA'
+      - 'asia-south1-docker.pkg.dev/${PROJECT_ID}/truthguard-repo/truthguard-frontend:$COMMIT_SHA'
       - '.'
     id: 'Build'
 
@@ -12,7 +12,7 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
-      - 'europe-west1-docker.pkg.dev/${PROJECT_ID}/truthguard-repo/truthguard-frontend:$COMMIT_SHA'
+      - 'asia-south1-docker.pkg.dev/${PROJECT_ID}/truthguard-repo/truthguard-frontend:$COMMIT_SHA'
     id: 'Push'
 
   # 3. Deploy the container image to Cloud Run
@@ -21,11 +21,29 @@ steps:
     args:
       - 'run'
       - 'deploy'
-      - 'truthguard-frontend' # Your Cloud Run service name
+      - 'truthguard-frontend'
       - '--image'
-      - 'europe-west1-docker.pkg.dev/${PROJECT_ID}/truthguard-repo/truthguard-frontend:$COMMIT_SHA'
+      - 'asia-south1-docker.pkg.dev/${PROJECT_ID}/truthguard-repo/truthguard-frontend:$COMMIT_SHA'
       - '--region'
-      - 'europe-west1' # The region you selected
+      - 'asia-south1'
+      - '--platform'
+      - 'managed'
+      - '--port'
+      - '8080'
+      - '--memory'
+      - '512Mi'
+      - '--cpu'
+      - '1'
+      - '--min-instances'
+      - '0'
+      - '--max-instances'
+      - '100'
+      - '--timeout'
+      - '300s'
+      - '--concurrency'
+      - '80'
+      - '--allow-unauthenticated'
       - '--quiet'
+
 images:
-  - 'europe-west1-docker.pkg.dev/${PROJECT_ID}/truthguard-repo/truthguard-frontend:$COMMIT_SHA'
+  - 'asia-south1-docker.pkg.dev/${PROJECT_ID}/truthguard-repo/truthguard-frontend:$COMMIT_SHA'

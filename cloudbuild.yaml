@@ -1,21 +1,33 @@
 steps:
-  # 1. Build the container image
+  # Build the container image
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
+      - '--cache-from'
+      - 'asia-south1-docker.pkg.dev/${PROJECT_ID}/truthguard-repo/truthguard-frontend:latest'
       - '-t'
       - 'asia-south1-docker.pkg.dev/${PROJECT_ID}/truthguard-repo/truthguard-frontend:$COMMIT_SHA'
+      - '-t'
+      - 'asia-south1-docker.pkg.dev/${PROJECT_ID}/truthguard-repo/truthguard-frontend:latest'
+      - '--build-arg'
+      - 'COMMIT_SHA=$COMMIT_SHA'
       - '.'
     id: 'Build'
 
-  # 2. Push the container image to Artifact Registry
+  # Push the container images to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
       - 'asia-south1-docker.pkg.dev/${PROJECT_ID}/truthguard-repo/truthguard-frontend:$COMMIT_SHA'
-    id: 'Push'
+    id: 'Push SHA'
 
-  # 3. Deploy the container image to Cloud Run
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'asia-south1-docker.pkg.dev/${PROJECT_ID}/truthguard-repo/truthguard-frontend:latest'
+    id: 'Push Latest'
+
+  # Deploy to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
@@ -43,7 +55,16 @@ steps:
       - '--concurrency'
       - '80'
       - '--allow-unauthenticated'
-      - '--quiet'
+      - '--set-env-vars'
+      - 'NODE_ENV=production,NEXT_TELEMETRY_DISABLED=1'
+    id: 'Deploy'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  dynamicSubstitutions: true
 
 images:
   - 'asia-south1-docker.pkg.dev/${PROJECT_ID}/truthguard-repo/truthguard-frontend:$COMMIT_SHA'
+  - 'asia-south1-docker.pkg.dev/${PROJECT_ID}/truthguard-repo/truthguard-frontend:latest'
+
+timeout: '1800s'

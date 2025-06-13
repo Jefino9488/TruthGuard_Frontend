@@ -1,5 +1,18 @@
 # 1. Dependencies Stage: Install packages
 FROM node:20-slim AS deps
+
+# Define build arguments
+ARG MONGODB_URI
+ARG MONGODB_DB
+ARG GOOGLE_AI_API_KEY
+ARG NEXT_PUBLIC_BASE_URL
+
+# Set environment variables
+ENV MONGODB_URI=${MONGODB_URI}
+ENV MONGODB_DB=${MONGODB_DB}
+ENV GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY}
+ENV NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL}
+
 WORKDIR /app
 
 # Install pnpm globally

@@ -10,6 +10,14 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  env: {
+    MONGODB_URI: process.env.MONGODB_URI,
+    MONGODB_DB: process.env.MONGODB_DB,
+    GOOGLE_AI_API_KEY: process.env.GOOGLE_AI_API_KEY,
+  },
+  experimental: {
+    serverActions: true,
+  },
 }
 
 export default nextConfig

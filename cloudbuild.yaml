@@ -1,31 +1,24 @@
 steps:
-  # Build the container image
   - name: 'gcr.io/cloud-builders/docker'
     entrypoint: 'bash'
+    secretEnv: ['MONGODB_URI', 'MONGODB_DB', 'GOOGLE_AI_API_KEY']
     args:
       - '-c'
       - |
         docker build \
           --build-arg="NEXT_PUBLIC_BASE_URL=https://truthguard-frontend-377368788327.asia-south1.run.app" \
-          --build-arg="MONGODB_URI=$$MONGODB_URI" \
-          --build-arg="MONGODB_DB=$$MONGODB_DB" \
-          --build-arg="GOOGLE_AI_API_KEY=$$GOOGLE_AI_API_KEY" \
+          --build-arg="MONGODB_URI=$MONGODB_URI" \
+          --build-arg="MONGODB_DB=$MONGODB_DB" \
+          --build-arg="GOOGLE_AI_API_KEY=$GOOGLE_AI_API_KEY" \
           -t "asia-south1-docker.pkg.dev/${PROJECT_ID}/truthguard-repo/truthguard-frontend:$COMMIT_SHA" \
-          -t "asia-south1-docker.pkg.dev/${PROJECT_ID}/truthguard-repo/truthguard-frontend:latest" \
-          .
-    id: 'Build'
-    secretEnv: ['MONGODB_URI', 'MONGODB_DB', 'GOOGLE_AI_API_KEY']
+          -t "asia-south1-docker.pkg.dev/${PROJECT_ID}/truthguard-repo/truthguard-frontend:latest" .
 
-  # Push the container images to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
     args: ['push', 'asia-south1-docker.pkg.dev/${PROJECT_ID}/truthguard-repo/truthguard-frontend:$COMMIT_SHA']
-    id: 'Push SHA'
 
   - name: 'gcr.io/cloud-builders/docker'
     args: ['push', 'asia-south1-docker.pkg.dev/${PROJECT_ID}/truthguard-repo/truthguard-frontend:latest']
-    id: 'Push Latest'
 
-  # Deploy to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
@@ -36,34 +29,25 @@ steps:
       - 'asia-south1-docker.pkg.dev/${PROJECT_ID}/truthguard-repo/truthguard-frontend:$COMMIT_SHA'
       - '--region'
       - 'asia-south1'
-      - '--platform'
-      - 'managed'
-      - '--port'
-      - '8080'
-      - '--memory'
-      - '512Mi'
-      - '--cpu'
-      - '1'
-      - '--min-instances'
-      - '0'
-      - '--max-instances'
-      - '100'
-      - '--timeout'
-      - '300s'
-      - '--concurrency'
-      - '80'
+      - '--platform=managed'
+      - '--port=8080'
+      - '--memory=512Mi'
+      - '--cpu=1'
+      - '--min-instances=0'
+      - '--max-instances=100'
+      - '--timeout=300s'
+      - '--concurrency=80'
       - '--allow-unauthenticated'
       - '--set-secrets=MONGODB_URI=MONGODB_URI:latest,MONGODB_DB=MONGODB_DB:latest,GOOGLE_AI_API_KEY=GOOGLE_AI_API_KEY:latest'
-    id: 'Deploy'
 
 availableSecrets:
   secretManager:
-    - versionName: projects/${PROJECT_ID}/secrets/MONGODB_URI/versions/latest
-      env: 'MONGODB_URI'
-    - versionName: projects/${PROJECT_ID}/secrets/MONGODB_DB/versions/latest
-      env: 'MONGODB_DB'
-    - versionName: projects/${PROJECT_ID}/secrets/GOOGLE_AI_API_KEY/versions/latest
-      env: 'GOOGLE_AI_API_KEY'
+    MONGODB_URI:
+      versionName: projects/${PROJECT_ID}/secrets/MONGODB_URI/versions/latest
+    MONGODB_DB:
+      versionName: projects/${PROJECT_ID}/secrets/MONGODB_DB/versions/latest
+    GOOGLE_AI_API_KEY:
+      versionName: projects/${PROJECT_ID}/secrets/GOOGLE_AI_API_KEY/versions/latest
 
 images:
   - 'asia-south1-docker.pkg.dev/${PROJECT_ID}/truthguard-repo/truthguard-frontend:$COMMIT_SHA'
@@ -72,5 +56,4 @@ images:
 options:
   logging: CLOUD_LOGGING_ONLY
   dynamicSubstitutions: true
-
 timeout: '1800s'

@@ -1,6 +1,5 @@
-import type { NextRequest } from "next/server";
-
-const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
+import { NextRequest, NextResponse } from "next/server";
+import { connectToDatabase, dbName } from "@/lib/mongodb";
 
 // Enhanced Server-Sent Events for real-time updates
 export async function GET(request: NextRequest) {
@@ -23,22 +22,19 @@ export async function GET(request: NextRequest) {
             // Enhanced real-time updates with MongoDB integration
             const interval = setInterval(async () => {
                 try {
-                    // Fetch latest data from backend's dashboard analytics and articles endpoints
-                    const [articlesResponse, analyticsResponse, alertsResponse] = await Promise.all([
-                        fetch(`${BACKEND_BASE_URL}/articles?limit=5&sort_by=analyzed_at&sort_order=desc`),
-                        fetch(`${BACKEND_BASE_URL}/dashboard-analytics`),
-                        fetch(`${BACKEND_BASE_URL}/articles/high-bias?limit=3&min_score=0.7`), // Using high-bias as a proxy for alerts
+                    const client = await connectToDatabase();
+                    const db = client.db(dbName);
+
+                    // Fetch latest data from MongoDB collections
+                    const [articles, analytics, alerts] = await Promise.all([
+                        db.collection("articles").find({}).sort({ analyzed_at: -1 }).limit(5).toArray(),
+                        db.collection("dashboard-analytics").find({}).toArray(),
+                        db.collection("articles").find({ min_score: 0.7 }).limit(3).toArray(),
                     ]);
 
-                    const [articlesData, analyticsData, alertsData] = await Promise.all([
-                        articlesResponse.ok ? articlesResponse.json() : { articles: [] },
-                        analyticsResponse.ok ? analyticsResponse.json() : { data: {} },
-                        alertsResponse.ok ? alertsResponse.json() : { articles: [] },
-                    ]);
-
-                    const systemStats = analyticsData.data?.totalStats?.[0] || {};
-                    const recentArticles = articlesData.articles || [];
-                    const activeAlerts = alertsData.articles?.map((article: any) => ({
+                    const systemStats = analytics[0] || {};
+                    const recentArticles = articles || [];
+                    const activeAlerts = alerts?.map((article: any) => ({
                         ...article,
                         alert_type: "high_bias", // Simplified alert type
                         severity: "high",

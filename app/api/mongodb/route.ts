@@ -1,58 +1,20 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { MongoClient, ServerApiVersion } from "mongodb";
+import { connectToDatabase, dbName } from "@/lib/mongodb";
 
-// Ensure your MongoDB connection string and database name are in your environment variables.
-// For example, in a .env.local file:
-// MONGODB_URI=mongodb+srv://<username>:<password>@<cluster-url>/
-// MONGODB_DB=truthguard_db
-
-const uri = process.env.MONGODB_URI as string;
-const dbName = process.env.MONGODB_DB as string;
-
-// Validate environment variables
-if (!uri) {
-  console.error("MONGODB_URI is not defined in environment variables.");
-  throw new Error("MONGODB_URI is not defined in environment variables.");
-}
-if (!dbName) {
-  console.error("MONGODB_DB is not defined in environment variables.");
-  throw new Error("MONGODB_DB is not defined in environment variables.");
-}
-
-let client: MongoClient | null = null;
-let clientPromise: Promise<MongoClient>;
-
-/**
- * Connects to MongoDB or returns an existing connection.
- * @returns {Promise<MongoClient>} A promise that resolves to the MongoClient instance.
- */
-async function connectToDatabase(): Promise<MongoClient> {
-  if (client) {
-    return client;
-  }
-
-  // Reuse the promise if it's already in progress
-  if (!clientPromise) {
-    clientPromise = MongoClient.connect(uri!, {
-      serverApi: ServerApiVersion.v1,
-      tls: true,
-      retryWrites: true,
-    });
-  }
-
-  client = await clientPromise;
-  return client;
-}
-
-const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
-
-/**
- * Handles GET requests to fetch articles from MongoDB via the backend.
- * @returns {NextResponse} A JSON response containing articles or an error message.
- */
 export async function GET(request: NextRequest) {
   try {
-    // Extract query parameters for pagination, sorting, etc. if needed by backend
+    const client = await connectToDatabase();
+    const db = client.db(dbName);
+
+    const backendUrl = process.env.BACKEND_BASE_URL;
+    if (!backendUrl) {
+      throw new Error("BACKEND_BASE_URL is not defined in environment variables");
+    }
+
+    // Get analytics data first
+    const analyticsData = await db.collection("dashboard-analytics").findOne({}) || { data: { overall_metrics: {}, biasDistribution: [] } };
+
+    // Extract query parameters for pagination, sorting, etc.
     const { searchParams } = request.nextUrl;
     const page = searchParams.get('page') || '1';
     const limit = searchParams.get('limit') || '10';
@@ -60,7 +22,7 @@ export async function GET(request: NextRequest) {
     const sort_order = searchParams.get('sort_order') || 'desc';
 
     // Call the backend's get_articles endpoint
-    const backendResponse = await fetch(`${BACKEND_BASE_URL}/articles?page=${page}&limit=${limit}&sort_by=${sort_by}&sort_order=${sort_order}`, {
+    const backendResponse = await fetch(`${backendUrl}/articles?page=${page}&limit=${limit}&sort_by=${sort_by}&sort_order=${sort_order}`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -73,14 +35,21 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await backendResponse.json();
-    // The backend's /articles endpoint returns { articles: [...], total_results: ..., page: ..., limit: ... }
-    // We want to return the articles array directly here for this frontend API route.
-    return NextResponse.json({ success: true, articles: data.articles || [], total_results: data.total_results });
+
+    return NextResponse.json({
+      success: true,
+      articles: data.articles || [],
+      total_results: data.total_results,
+      analytics: {
+        overall_metrics: analyticsData.data?.overall_metrics || {},
+        bias_distribution: analyticsData.data?.biasDistribution || []
+      }
+    });
   } catch (error: any) {
-    console.error("Error fetching data from MongoDB (via backend):", error);
+    console.error("Error fetching data:", error);
     return NextResponse.json(
-        { success: false, message: "Failed to fetch articles", error: error.message },
-        { status: 500 }
+      { success: false, message: "Failed to fetch data", error: error.message },
+      { status: 500 }
     );
   }
 }
@@ -103,8 +72,13 @@ export async function POST(req: Request) {
       );
     }
 
+    const backendUrl = process.env.BACKEND_BASE_URL;
+    if (!backendUrl) {
+      throw new Error("BACKEND_BASE_URL is not defined in environment variables");
+    }
+
     // Call the backend's /analyze-manual endpoint
-    const backendResponse = await fetch(`${BACKEND_BASE_URL}/analyze-manual`, {
+    const backendResponse = await fetch(`${backendUrl}/analyze-manual`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

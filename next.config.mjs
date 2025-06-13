@@ -14,6 +14,7 @@ const nextConfig = {
     MONGODB_URI: process.env.MONGODB_URI,
     MONGODB_DB: process.env.MONGODB_DB,
     GOOGLE_AI_API_KEY: process.env.GOOGLE_AI_API_KEY,
+    BACKEND_BASE_URL: process.env.BACKEND_BASE_URL,
   },
   experimental: {
     serverActions: true,

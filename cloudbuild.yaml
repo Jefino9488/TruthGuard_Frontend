@@ -1,23 +1,29 @@
 steps:
   - name: 'gcr.io/cloud-builders/docker'
-    entrypoint: 'bash'
-    secretEnv: ['MONGODB_URI', 'MONGODB_DB', 'GOOGLE_AI_API_KEY']
     args:
-      - '-c'
-      - |
-        docker build \
-          --build-arg="NEXT_PUBLIC_BASE_URL=https://truthguard-frontend-377368788327.asia-south1.run.app" \
-          --build-arg="MONGODB_URI=$MONGODB_URI" \
-          --build-arg="MONGODB_DB=$MONGODB_DB" \
-          --build-arg="GOOGLE_AI_API_KEY=$GOOGLE_AI_API_KEY" \
-          -t "asia-south1-docker.pkg.dev/${PROJECT_ID}/truthguard-repo/truthguard-frontend:$COMMIT_SHA" \
-          -t "asia-south1-docker.pkg.dev/${PROJECT_ID}/truthguard-repo/truthguard-frontend:latest" .
+      - 'build'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_BASE_URL=https://truthguard-frontend-377368788327.asia-south1.run.app'
+      - '--build-arg'
+      - 'MONGODB_URI=$MONGODB_URI'
+      - '--build-arg'
+      - 'MONGODB_DB=$MONGODB_DB'
+      - '--build-arg'
+      - 'GOOGLE_AI_API_KEY=$GOOGLE_AI_API_KEY'
+      - '--build-arg'
+      - 'BACKEND_BASE_URL=$BACKEND_BASE_URL'
+      - '-t'
+      - 'asia-south1-docker.pkg.dev/constant-wonder-461912-n2/truthguard-repo/truthguard-frontend:$COMMIT_SHA'
+      - '-t'
+      - 'asia-south1-docker.pkg.dev/constant-wonder-461912-n2/truthguard-repo/truthguard-frontend:latest'
+      - '.'
+    secretEnv: ['MONGODB_URI', 'MONGODB_DB', 'GOOGLE_AI_API_KEY', 'BACKEND_BASE_URL']
 
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'asia-south1-docker.pkg.dev/${PROJECT_ID}/truthguard-repo/truthguard-frontend:$COMMIT_SHA']
+    args: ['push', 'asia-south1-docker.pkg.dev/constant-wonder-461912-n2/truthguard-repo/truthguard-frontend:$COMMIT_SHA']
 
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'asia-south1-docker.pkg.dev/${PROJECT_ID}/truthguard-repo/truthguard-frontend:latest']
+    args: ['push', 'asia-south1-docker.pkg.dev/constant-wonder-461912-n2/truthguard-repo/truthguard-frontend:latest']
 
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
@@ -26,7 +32,7 @@ steps:
       - 'deploy'
       - 'truthguard-frontend'
       - '--image'
-      - 'asia-south1-docker.pkg.dev/${PROJECT_ID}/truthguard-repo/truthguard-frontend:$COMMIT_SHA'
+      - 'asia-south1-docker.pkg.dev/constant-wonder-461912-n2/truthguard-repo/truthguard-frontend:$COMMIT_SHA'
       - '--region'
       - 'asia-south1'
       - '--platform=managed'
@@ -38,20 +44,22 @@ steps:
       - '--timeout=300s'
       - '--concurrency=80'
       - '--allow-unauthenticated'
-      - '--set-secrets=MONGODB_URI=MONGODB_URI:latest,MONGODB_DB=MONGODB_DB:latest,GOOGLE_AI_API_KEY=GOOGLE_AI_API_KEY:latest'
+      - '--set-secrets=MONGODB_URI=MONGODB_URI:latest,MONGODB_DB=MONGODB_DB:latest,GOOGLE_AI_API_KEY=GOOGLE_AI_API_KEY:latest,BACKEND_BASE_URL=BACKEND_BASE_URL:latest'
 
 availableSecrets:
   secretManager:
     MONGODB_URI:
-      versionName: projects/${PROJECT_ID}/secrets/MONGODB_URI/versions/latest
+      versionName: projects/constant-wonder-461912-n2/secrets/MONGODB_URI/versions/latest
     MONGODB_DB:
-      versionName: projects/${PROJECT_ID}/secrets/MONGODB_DB/versions/latest
+      versionName: projects/constant-wonder-461912-n2/secrets/MONGODB_DB/versions/latest
     GOOGLE_AI_API_KEY:
-      versionName: projects/${PROJECT_ID}/secrets/GOOGLE_AI_API_KEY/versions/latest
+      versionName: projects/constant-wonder-461912-n2/secrets/GOOGLE_AI_API_KEY/versions/latest
+    BACKEND_BASE_URL:
+      versionName: projects/constant-wonder-461912-n2/secrets/BACKEND_BASE_URL/versions/latest
 
 images:
-  - 'asia-south1-docker.pkg.dev/${PROJECT_ID}/truthguard-repo/truthguard-frontend:$COMMIT_SHA'
-  - 'asia-south1-docker.pkg.dev/${PROJECT_ID}/truthguard-repo/truthguard-frontend:latest'
+  - 'asia-south1-docker.pkg.dev/constant-wonder-461912-n2/truthguard-repo/truthguard-frontend:$COMMIT_SHA'
+  - 'asia-south1-docker.pkg.dev/constant-wonder-461912-n2/truthguard-repo/truthguard-frontend:latest'
 
 options:
   logging: CLOUD_LOGGING_ONLY

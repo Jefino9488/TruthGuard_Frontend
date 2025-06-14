@@ -16,9 +16,6 @@ const nextConfig = {
     GOOGLE_AI_API_KEY: process.env.GOOGLE_AI_API_KEY,
     BACKEND_BASE_URL: process.env.BACKEND_BASE_URL,
   },
-  experimental: {
-    serverActions: true,
-  },
   poweredByHeader: false,
   generateEtags: false,
 }

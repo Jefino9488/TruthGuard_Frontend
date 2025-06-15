@@ -4,7 +4,7 @@ import { MongoClient, ServerApiVersion } from "mongodb";
 
 // ... (MongoDB connection setup remains the same)
 
-const BACKEND_BASE_URL = process.env.BACKEND_BASE_URL;
+const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL;
 
 // This POST method seems to be for storing data, which backend's /analyze-manual already does.
 // I'm keeping it as is, but focusing on the GET for vector search.

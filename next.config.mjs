@@ -11,10 +11,10 @@ const nextConfig = {
     unoptimized: true,
   },
   env: {
-    MONGODB_URI: process.env.MONGODB_URI,
-    MONGODB_DB: process.env.MONGODB_DB,
-    GOOGLE_AI_API_KEY: process.env.GOOGLE_AI_API_KEY,
-    BACKEND_BASE_URL: process.env.BACKEND_BASE_URL,
+    NEXT_PUBLIC_MONGODB_URI: process.env.NEXT_PUBLIC_MONGODB_URI,
+    NEXT_PUBLIC_MONGODB_DB: process.env.NEXT_PUBLIC_MONGODB_DB,
+    NEXT_PUBLIC_GOOGLE_AI_API_KEY: process.env.NEXT_PUBLIC_GOOGLE_AI_API_KEY,
+    NEXT_PUBLIC_BACKEND_BASE_URL: process.env.NEXT_PUBLIC_BACKEND_BASE_URL,
   },
   async rewrites() {
     return [

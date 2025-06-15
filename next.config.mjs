@@ -16,6 +16,14 @@ const nextConfig = {
     GOOGLE_AI_API_KEY: process.env.GOOGLE_AI_API_KEY,
     BACKEND_BASE_URL: process.env.BACKEND_BASE_URL,
   },
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: `${process.env.BACKEND_BASE_URL}/api/:path*`,
+      },
+    ]
+  },
   poweredByHeader: false,
   generateEtags: false,
 }

@@ -6,9 +6,9 @@ export async function GET(request: NextRequest) {
     const client = await connectToDatabase();
     const db = client.db(dbName);
 
-    const backendUrl = process.env.NEXT_PUBLIC_BASE_URL;
+    const backendUrl = process.env.BACKEND_BASE_URL;
     if (!backendUrl) {
-      throw new Error("NEXT_PUBLIC_BASE_URL is not defined in environment variables");
+      throw new Error("BACKEND_BASE_URL is not defined in environment variables");
     }
 
     // Get analytics data first
@@ -72,9 +72,9 @@ export async function POST(req: Request) {
       );
     }
 
-    const backendUrl = process.env.NEXT_PUBLIC_BASE_URL;
+    const backendUrl = process.env.BACKEND_BASE_URL;
     if (!backendUrl) {
-      throw new Error("NEXT_PUBLIC_BASE_URL is not defined in environment variables");
+      throw new Error("BACKEND_BASE_URL is not defined in environment variables");
     }
 
     // Call the backend's /analyze-manual endpoint

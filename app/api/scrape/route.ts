@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { JSDOM } from "jsdom"; // Keep JSDOM if this route still performs direct scraping/parsing
 
-const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
+const BACKEND_BASE_URL = process.env.BACKEND_BASE_URL;
 
 // This frontend API route will now primarily trigger the backend's scraping
 // and potentially fetch recent articles from the backend after a delay.

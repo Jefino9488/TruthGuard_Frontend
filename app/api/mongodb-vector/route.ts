@@ -4,7 +4,7 @@ import { MongoClient, ServerApiVersion } from "mongodb";
 
 // ... (MongoDB connection setup remains the same)
 
-const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
+const BACKEND_BASE_URL = process.env.BACKEND_BASE_URL;
 
 // This POST method seems to be for storing data, which backend's /analyze-manual already does.
 // I'm keeping it as is, but focusing on the GET for vector search.
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
       id: backendResult.article_meta?.article_id || "unknown",
       message: "Content processed and stored with vector embedding by the backend.",
       collection: collection,
-      database: dbName,
+      database: "truthguard",
     });
   } catch (error: any) {
     console.error("MongoDB Vector Storage Error (Frontend Route):", error);

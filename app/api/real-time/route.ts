@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 
-const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
+const BACKEND_BASE_URL = process.env.BACKEND_BASE_URL;
 
 // Enhanced Server-Sent Events for real-time updates
 export async function GET(request: NextRequest) {

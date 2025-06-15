@@ -23,6 +23,7 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args: ['push', 'asia-south1-docker.pkg.dev/constant-wonder-461912-n2/truthguard-repo/truthguard-frontend:latest']
 
+  # Deploy container image to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
@@ -30,30 +31,27 @@ steps:
       - 'deploy'
       - 'truthguard-frontend'
       - '--image'
-      - 'asia-south1-docker.pkg.dev/constant-wonder-461912-n2/truthguard-repo/truthguard-frontend:$COMMIT_SHA'
+      - 'asia-south1-docker.pkg.dev/constant-wonder-461912-n2/truthguard-repo/truthguard-frontend:latest'
       - '--region'
       - 'asia-south1'
-      - '--platform=managed'
-      - '--port=8080'
-      - '--memory=512Mi'
-      - '--cpu=1'
-      - '--min-instances=0'
-      - '--max-instances=100'
-      - '--timeout=300s'
-      - '--concurrency=80'
+      - '--platform'
+      - 'managed'
       - '--allow-unauthenticated'
-      - '--set-secrets=MONGODB_URI=MONGODB_URI:latest,MONGODB_DB=MONGODB_DB:latest,GOOGLE_AI_API_KEY=GOOGLE_AI_API_KEY:latest,BACKEND_BASE_URL=BACKEND_BASE_URL:latest'
+      - '--set-secrets'
+      - 'MONGODB_URI=MONGODB_URI:latest,MONGODB_DB=MONGODB_DB:latest,GOOGLE_AI_API_KEY=GOOGLE_AI_API_KEY:latest,BACKEND_BASE_URL=BACKEND_BASE_URL:latest'
+      - '--set-env-vars'
+      - 'NODE_ENV=production'
 
 availableSecrets:
   secretManager:
-    MONGODB_URI:
-      versionName: projects/constant-wonder-461912-n2/secrets/MONGODB_URI/versions/latest
-    MONGODB_DB:
-      versionName: projects/constant-wonder-461912-n2/secrets/MONGODB_DB/versions/latest
-    GOOGLE_AI_API_KEY:
-      versionName: projects/constant-wonder-461912-n2/secrets/GOOGLE_AI_API_KEY/versions/latest
-    BACKEND_BASE_URL:
-      versionName: projects/constant-wonder-461912-n2/secrets/BACKEND_BASE_URL/versions/latest
+    - versionName: projects/constant-wonder-461912-n2/secrets/MONGODB_URI/versions/latest
+      env: 'MONGODB_URI'
+    - versionName: projects/constant-wonder-461912-n2/secrets/MONGODB_DB/versions/latest
+      env: 'MONGODB_DB'
+    - versionName: projects/constant-wonder-461912-n2/secrets/GOOGLE_AI_API_KEY/versions/latest
+      env: 'GOOGLE_AI_API_KEY'
+    - versionName: projects/constant-wonder-461912-n2/secrets/BACKEND_BASE_URL/versions/latest
+      env: 'BACKEND_BASE_URL'
 
 images:
   - 'asia-south1-docker.pkg.dev/constant-wonder-461912-n2/truthguard-repo/truthguard-frontend:$COMMIT_SHA'

@@ -1,15 +1,22 @@
 // app/api/mongodb-analytics/route.ts
 import { type NextRequest, NextResponse } from "next/server";
 
-const BACKEND_BASE_URL = process.env.BACKEND_BASE_URL;
+const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL;
 
 export async function GET(request: NextRequest) {
   try {
+    if (!BACKEND_BASE_URL) {
+      throw new Error("NEXT_PUBLIC_BACKEND_BASE_URL is not defined in environment variables");
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const analysisType = searchParams.get("type") || "overview";
 
+    // Make sure we have a valid URL by using URL constructor
+    const analyticsUrl = new URL('/dashboard-analytics', BACKEND_BASE_URL).toString();
+
     // Call the backend's dashboard analytics endpoint
-    const backendResponse = await fetch(`${BACKEND_BASE_URL}/dashboard-analytics`, {
+    const backendResponse = await fetch(analyticsUrl, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",

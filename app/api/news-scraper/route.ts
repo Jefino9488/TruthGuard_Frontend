@@ -1,14 +1,21 @@
 import { type NextRequest, NextResponse } from "next/server";
 
-const BACKEND_BASE_URL = process.env.BACKEND_BASE_URL;
+const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL;
 
 export async function POST(request: NextRequest) {
   try {
+    if (!BACKEND_BASE_URL) {
+      throw new Error("NEXT_PUBLIC_BACKEND_BASE_URL is not defined in environment variables");
+    }
+
     const { source, limit = 5 } = await request.json();
+
+    // Make sure we have a valid URL by using URL constructor
+    const scrapeUrl = new URL('/scrape', BACKEND_BASE_URL).toString();
 
     // In the new setup, the frontend will trigger the backend's scraper.
     // The backend handles the actual scraping, analysis, and storage.
-    const backendResponse = await fetch(`${BACKEND_BASE_URL}/scrape`, {
+    const backendResponse = await fetch(scrapeUrl, {
       method: "POST", // Backend's trigger_scrape is POST
       headers: {
         "Content-Type": "application/json",

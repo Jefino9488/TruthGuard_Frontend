@@ -1,20 +1,22 @@
 import { type NextRequest, NextResponse } from "next/server";
 
-const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
+const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL;
 
 export async function POST(request: NextRequest) {
   try {
-    // The backend /analyze endpoint currently does not expect a request body
-    // it simply triggers the analysis task.
-    // If your backend /analyze were to accept a body (e.g., specific articles to analyze),
-    // you would parse request.json() here and pass it to the backend.
+    if (!BACKEND_BASE_URL) {
+      throw new Error("NEXT_PUBLIC_BACKEND_BASE_URL is not defined in environment variables");
+    }
 
     console.log("Frontend API: Forwarding request to backend /analyze...");
 
-    const backendResponse = await fetch(`${BACKEND_BASE_URL}/analyze`, {
+    // Make sure we have a valid URL by using URL constructor
+    const analyzeUrl = new URL('/analyze', BACKEND_BASE_URL).toString();
+
+    const backendResponse = await fetch(analyzeUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}), // Sending an empty JSON body as per backend's current expectation
+      body: JSON.stringify({}),
     });
 
     console.log("Backend /analyze response status:", backendResponse.status);
@@ -29,19 +31,21 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: result.message || "AI analysis task triggered successfully on backend.",
-      status: result.status,
+      message: result.message || "Analysis task triggered successfully",
+      task_id: result.task_id,
+      status: "triggered",
+      metadata: {
+        triggered_at: new Date().toISOString(),
+        estimated_completion: "5-10 minutes"
+      }
     });
 
   } catch (error: any) {
-    console.error("Frontend API: Error proxying analysis request to backend:", error);
-    return NextResponse.json(
-        {
-          success: false,
-          error: "Failed to trigger analysis task on backend.",
-          details: error.message,
-        },
-        { status: 500 }
-    );
+    console.error("Analysis Error:", error);
+    return NextResponse.json({
+      success: false,
+      error: error.message || "Failed to trigger analysis",
+      status: "failed",
+    }, { status: 500 });
   }
 }

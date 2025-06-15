@@ -21,14 +21,17 @@ export async function POST(request: NextRequest) {
 
     console.log("🚀 Frontend: Requesting Google Cloud AI Analysis via Backend...");
 
+    // Make sure we have a valid URL by using URL constructor
+    const analyzeUrl = new URL('/analyze-manual', BACKEND_BASE_URL).toString();
+
     // Call the backend's manual analysis endpoint to leverage Gemini and embeddings
-    const backendAnalyzeResponse = await fetch(`${BACKEND_BASE_URL}/analyze-manual`, {
+    const backendAnalyzeResponse = await fetch(analyzeUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "X-Google-AI-Key": GOOGLE_AI_API_KEY,
       },
-      body: JSON.stringify({ content: content, headline: content.substring(0, 100) }), // Pass content and a dummy headline
+      body: JSON.stringify({ content: content, headline: content.substring(0, 100) }),
     });
 
     if (!backendAnalyzeResponse.ok) {
@@ -37,14 +40,17 @@ export async function POST(request: NextRequest) {
     }
 
     const backendAnalysisResult = await backendAnalyzeResponse.json();
-    const googleAIAnalysis = backendAnalysisResult.analysis; // This now includes embeddings
+    const googleAIAnalysis = backendAnalysisResult.analysis;
+
+    // Make sure we have a valid vector search URL
+    const vectorSearchUrl = new URL('/vector-search', BACKEND_BASE_URL).toString();
 
     // Perform MongoDB Vector Search on the backend using the generated embedding
-    const queryEmbedding = googleAIAnalysis.content_embedding; // Use the embedding from backend analysis
+    const queryEmbedding = googleAIAnalysis.content_embedding;
     let vectorSearchResults = [];
 
     if (queryEmbedding) {
-      const backendVectorSearchResponse = await fetch(`${BACKEND_BASE_URL}/vector-search`, {
+      const backendVectorSearchResponse = await fetch(vectorSearchUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -63,7 +69,6 @@ export async function POST(request: NextRequest) {
         console.error("Failed to call backend vector search:", backendVectorSearchResponse.statusText);
       }
     }
-
 
     // Generate insights using MongoDB aggregation + Google AI (adapt to frontend needs)
     const enhancedInsights = generateGoogleAIInsights(googleAIAnalysis, vectorSearchResults);
@@ -98,11 +103,12 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error("Google Cloud AI Analysis Error (Frontend Route):", error);
 
-    // Fallback analysis
-    const fallbackAnalysis = generateEnhancedFallbackAnalysis(content);
+    // Pass the content from the error context to the fallback analysis
+    const errorContent = error.content || ""; // Provide empty string as fallback
+    const fallbackAnalysis = generateEnhancedFallbackAnalysis(errorContent);
 
     return NextResponse.json({
-      success: false, // Indicate failure to avoid showing incomplete data on the frontend
+      success: false,
       error: "Analysis failed or backend unreachable",
       details: error.message,
       analysis: fallbackAnalysis,

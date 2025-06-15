@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 
-const BACKEND_BASE_URL = process.env.BACKEND_BASE_URL;
+const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL;
 
 // Enhanced Server-Sent Events for real-time updates
 export async function GET(request: NextRequest) {
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
                 timestamp: new Date().toISOString(),
                 version: "3.0",
                 features: ["mongodb_atlas", "vector_search", "google_ai", "real_time_analysis"],
-                database: process.env.MONGODB_DB || "TruthGuard",
+                database: process.env.NEXT_PUBLIC_MONGODB_DB || "TruthGuard",
                 collections: ["articles", "vector_search_demo"],
             })}\n\n`;
             controller.enqueue(encoder.encode(data));

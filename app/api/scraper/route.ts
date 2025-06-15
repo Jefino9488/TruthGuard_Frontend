@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
           for (const article of articles) {
             try {
               // Store in MongoDB with comprehensive AI analysis
-              const storeResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/mongodb`, {
+              const storeResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/api/mongodb`, {
                 method: "POST",
                 headers: {
                   "Content-Type": "application/json",

@@ -20,7 +20,7 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  console.log('BACKEND_BASE_URL:', process.env.BACKEND_BASE_URL);
+  console.log('BACKEND_BASE_URL:', process.env.NEXT_PUBLIC_BACKEND_BASE_URL);
 
   return (
     <html lang="en" className="light" style={{ colorScheme: 'light' }}>

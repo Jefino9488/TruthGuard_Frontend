@@ -3,19 +3,19 @@ steps:
     args:
       - 'build'
       - '--build-arg'
-      - 'MONGODB_URI=$MONGODB_URI'
+      - 'NEXT_PUBLIC_MONGODB_URI=$NEXT_PUBLIC_MONGODB_URI'
       - '--build-arg'
-      - 'MONGODB_DB=$MONGODB_DB'
+      - 'NEXT_PUBLIC_MONGODB_DB=$NEXT_PUBLIC_MONGODB_DB'
       - '--build-arg'
-      - 'GOOGLE_AI_API_KEY=$GOOGLE_AI_API_KEY'
+      - 'NEXT_PUBLIC_GOOGLE_AI_API_KEY=$NEXT_PUBLIC_GOOGLE_AI_API_KEY'
       - '--build-arg'
-      - 'BACKEND_BASE_URL=$BACKEND_BASE_URL'
+      - 'NEXT_PUBLIC_BACKEND_BASE_URL=$NEXT_PUBLIC_BACKEND_BASE_URL'
       - '-t'
       - 'asia-south1-docker.pkg.dev/constant-wonder-461912-n2/truthguard-repo/truthguard-frontend:$COMMIT_SHA'
       - '-t'
       - 'asia-south1-docker.pkg.dev/constant-wonder-461912-n2/truthguard-repo/truthguard-frontend:latest'
       - '.'
-    secretEnv: ['MONGODB_URI', 'MONGODB_DB', 'GOOGLE_AI_API_KEY', 'BACKEND_BASE_URL']
+    secretEnv: ['NEXT_PUBLIC_MONGODB_URI', 'NEXT_PUBLIC_MONGODB_DB', 'NEXT_PUBLIC_GOOGLE_AI_API_KEY', 'NEXT_PUBLIC_BACKEND_BASE_URL']
 
   - name: 'gcr.io/cloud-builders/docker'
     args: ['push', 'asia-south1-docker.pkg.dev/constant-wonder-461912-n2/truthguard-repo/truthguard-frontend:$COMMIT_SHA']
@@ -38,20 +38,20 @@ steps:
       - 'managed'
       - '--allow-unauthenticated'
       - '--set-secrets'
-      - 'MONGODB_URI=MONGODB_URI:latest,MONGODB_DB=MONGODB_DB:latest,GOOGLE_AI_API_KEY=GOOGLE_AI_API_KEY:latest,BACKEND_BASE_URL=BACKEND_BASE_URL:latest'
+      - 'NEXT_PUBLIC_MONGODB_URI=NEXT_PUBLIC_MONGODB_URI:latest,NEXT_PUBLIC_MONGODB_DB=NEXT_PUBLIC_MONGODB_DB:latest,NEXT_PUBLIC_GOOGLE_AI_API_KEY=NEXT_PUBLIC_GOOGLE_AI_API_KEY:latest,NEXT_PUBLIC_BACKEND_BASE_URL=NEXT_PUBLIC_BACKEND_BASE_URL:latest'
       - '--set-env-vars'
       - 'NODE_ENV=production'
 
 availableSecrets:
   secretManager:
-    - versionName: projects/constant-wonder-461912-n2/secrets/MONGODB_URI/versions/latest
-      env: 'MONGODB_URI'
-    - versionName: projects/constant-wonder-461912-n2/secrets/MONGODB_DB/versions/latest
-      env: 'MONGODB_DB'
-    - versionName: projects/constant-wonder-461912-n2/secrets/GOOGLE_AI_API_KEY/versions/latest
-      env: 'GOOGLE_AI_API_KEY'
-    - versionName: projects/constant-wonder-461912-n2/secrets/BACKEND_BASE_URL/versions/latest
-      env: 'BACKEND_BASE_URL'
+    - versionName: projects/constant-wonder-461912-n2/secrets/NEXT_PUBLIC_MONGODB_URI/versions/latest
+      env: 'NEXT_PUBLIC_MONGODB_URI'
+    - versionName: projects/constant-wonder-461912-n2/secrets/NEXT_PUBLIC_MONGODB_DB/versions/latest
+      env: 'NEXT_PUBLIC_MONGODB_DB'
+    - versionName: projects/constant-wonder-461912-n2/secrets/NEXT_PUBLIC_GOOGLE_AI_API_KEY/versions/latest
+      env: 'NEXT_PUBLIC_GOOGLE_AI_API_KEY'
+    - versionName: projects/constant-wonder-461912-n2/secrets/NEXT_PUBLIC_BACKEND_BASE_URL/versions/latest
+      env: 'NEXT_PUBLIC_BACKEND_BASE_URL'
 
 images:
   - 'asia-south1-docker.pkg.dev/constant-wonder-461912-n2/truthguard-repo/truthguard-frontend:$COMMIT_SHA'

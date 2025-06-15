@@ -3,8 +3,6 @@ steps:
     args:
       - 'build'
       - '--build-arg'
-      - 'NEXT_PUBLIC_BASE_URL=https://backend-377368788327.asia-south1.run.app'
-      - '--build-arg'
       - 'MONGODB_URI=$MONGODB_URI'
       - '--build-arg'
       - 'MONGODB_DB=$MONGODB_DB'

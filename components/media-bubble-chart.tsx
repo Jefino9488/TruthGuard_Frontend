@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import * as d3 from "d3"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface MediaSource {
   name: string
@@ -9,33 +10,72 @@ interface MediaSource {
   reliability: number // 0 to 1
   reach: number // audience size, determines bubble size
   category: string // type of media
+  articleCount?: number // number of articles from this source
+  misinformationRisk?: number // risk of misinformation
 }
 
-const mediaSources: MediaSource[] = [
+// Fallback data in case the API fails
+const fallbackData: MediaSource[] = [
   { name: "CNN", bias: -0.6, reliability: 0.7, reach: 80, category: "TV" },
   { name: "Fox News", bias: 0.8, reliability: 0.5, reach: 90, category: "TV" },
-  { name: "MSNBC", bias: -0.8, reliability: 0.6, reach: 70, category: "TV" },
-  { name: "New York Times", bias: -0.5, reliability: 0.9, reach: 75, category: "Print" },
-  { name: "Wall Street Journal", bias: 0.4, reliability: 0.9, reach: 65, category: "Print" },
-  { name: "Washington Post", bias: -0.4, reliability: 0.8, reach: 60, category: "Print" },
   { name: "Reuters", bias: 0, reliability: 0.95, reach: 50, category: "Wire" },
-  { name: "AP", bias: -0.1, reliability: 0.95, reach: 55, category: "Wire" },
-  { name: "Breitbart", bias: 0.9, reliability: 0.3, reach: 40, category: "Online" },
-  { name: "HuffPost", bias: -0.7, reliability: 0.5, reach: 45, category: "Online" },
-  { name: "The Guardian", bias: -0.6, reliability: 0.8, reach: 50, category: "Print" },
-  { name: "The Economist", bias: 0.2, reliability: 0.9, reach: 40, category: "Print" },
   { name: "BBC", bias: -0.2, reliability: 0.9, reach: 85, category: "TV" },
-  { name: "Daily Wire", bias: 0.8, reliability: 0.4, reach: 35, category: "Online" },
-  { name: "Vox", bias: -0.7, reliability: 0.7, reach: 30, category: "Online" },
   { name: "NPR", bias: -0.3, reliability: 0.85, reach: 45, category: "Radio" },
-  { name: "The Hill", bias: 0.1, reliability: 0.75, reach: 35, category: "Online" },
 ]
 
 export function MediaBubbleChart() {
   const svgRef = useRef<SVGSVGElement>(null)
+  const [mediaSources, setMediaSources] = useState<MediaSource[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  // Fetch media landscape data from the API
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true)
+        const response = await fetch('/api/media-landscape')
+
+        if (!response.ok) {
+          throw new Error(`API error: ${response.statusText}`)
+        }
+
+        const data = await response.json()
+
+        if (data.success && data.data && data.data.length > 0) {
+          // Transform the data to match the MediaSource interface
+          const transformedData = data.data.map((source: any) => ({
+            name: source.name,
+            // Convert bias from 0-1 scale to -1 to 1 scale
+            bias: source.bias ? (source.bias * 2) - 1 : 0,
+            reliability: source.reliability || 0.5,
+            reach: source.reach || 30,
+            category: source.category || 'Online',
+            articleCount: source.articleCount,
+            misinformationRisk: source.misinformationRisk
+          }))
+
+          setMediaSources(transformedData)
+        } else {
+          // Use fallback data if API returns empty data
+          console.warn("API returned empty data, using fallback data")
+          setMediaSources(fallbackData)
+        }
+      } catch (err) {
+        console.error("Error fetching media landscape data:", err)
+        setError("Failed to load media landscape data")
+        // Use fallback data on error
+        setMediaSources(fallbackData)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [])
 
   useEffect(() => {
-    if (!svgRef.current) return
+    if (!svgRef.current || !mediaSources.length || loading) return
 
     const width = 800
     const height = 600
@@ -256,14 +296,26 @@ export function MediaBubbleChart() {
       // Cleanup tooltip
       d3.select("body").selectAll(".tooltip").remove()
     }
-  }, [])
+  }, [mediaSources, loading])
 
   return (
     <div className="w-full h-[600px] overflow-hidden">
-      <svg ref={svgRef} className="w-full h-full"></svg>
-      <div className="mt-4 text-sm text-gray-500 text-center">
-        <p>Bubble size represents audience reach. Hover over bubbles for detailed information.</p>
-      </div>
+      {loading ? (
+        <div className="flex items-center justify-center h-full">
+          <Skeleton className="h-[500px] w-full" />
+        </div>
+      ) : error ? (
+        <div className="flex items-center justify-center h-full text-red-500">
+          <p>{error}</p>
+        </div>
+      ) : (
+        <>
+          <svg ref={svgRef} className="w-full h-full"></svg>
+          <div className="mt-4 text-sm text-gray-500 text-center">
+            <p>Bubble size represents audience reach. Hover over bubbles for detailed information.</p>
+          </div>
+        </>
+      )}
     </div>
   )
 }

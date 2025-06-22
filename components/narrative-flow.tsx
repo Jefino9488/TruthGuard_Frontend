@@ -1,8 +1,9 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import * as d3 from "d3"
 import { sankey, sankeyLinkHorizontal } from 'd3-sankey'
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface Node {
   id: string
@@ -20,46 +21,130 @@ interface Graph {
   links: Link[]
 }
 
-// Sample data for narrative flow
-const data: Graph = {
+// Fallback data in case the API fails
+const fallbackData: Graph = {
   nodes: [
     { id: "Initial Report", group: 1 },
     { id: "Economic Impact", group: 2 },
     { id: "Political Response", group: 3 },
     { id: "Public Reaction", group: 4 },
     { id: "Expert Analysis", group: 5 },
-    { id: "Policy Proposal", group: 3 },
-    { id: "Market Response", group: 2 },
-    { id: "Social Media", group: 4 },
-    { id: "Opposition View", group: 3 },
-    { id: "International Perspective", group: 6 },
-    { id: "Historical Context", group: 5 },
-    { id: "Future Implications", group: 2 },
   ],
   links: [
     { source: "Initial Report", target: "Economic Impact", value: 5 },
     { source: "Initial Report", target: "Political Response", value: 8 },
     { source: "Initial Report", target: "Public Reaction", value: 6 },
-    { source: "Economic Impact", target: "Market Response", value: 7 },
     { source: "Economic Impact", target: "Expert Analysis", value: 4 },
-    { source: "Political Response", target: "Policy Proposal", value: 6 },
-    { source: "Political Response", target: "Opposition View", value: 5 },
-    { source: "Public Reaction", target: "Social Media", value: 9 },
-    { source: "Expert Analysis", target: "Future Implications", value: 5 },
-    { source: "Expert Analysis", target: "Historical Context", value: 4 },
-    { source: "Policy Proposal", target: "Future Implications", value: 3 },
-    { source: "Policy Proposal", target: "International Perspective", value: 2 },
-    { source: "Opposition View", target: "Public Reaction", value: 4 },
-    { source: "Social Media", target: "Opposition View", value: 3 },
-    { source: "Market Response", target: "Future Implications", value: 4 },
+    { source: "Political Response", target: "Public Reaction", value: 5 },
   ],
 }
 
 export function NarrativeFlow() {
   const svgRef = useRef<SVGSVGElement>(null)
+  const [data, setData] = useState<Graph | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  // Fetch narrative flow data from the API
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true)
+        const response = await fetch('/api/narrative-flow')
+
+        if (!response.ok) {
+          throw new Error(`API error: ${response.statusText}`)
+        }
+
+        const result = await response.json()
+
+        if (result.success && result.data) {
+          setData(result.data)
+        } else {
+          // Use fallback data if API returns empty data
+          console.warn("API returned empty data, using fallback data")
+          setData(fallbackData)
+        }
+      } catch (err) {
+        console.error("Error fetching narrative flow data:", err)
+        setError("Failed to load narrative flow data")
+        // Use fallback data on error
+        setData(fallbackData)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, []) // Empty dependency array means this effect runs once on mount
+
+  // Function to detect and remove circular links
+  const removeCircularLinks = (graph: Graph): Graph => {
+    // Create a map of node ids for quick lookup
+    const nodeMap = new Map<string, boolean>();
+    graph.nodes.forEach(node => {
+      nodeMap.set(node.id, true);
+    });
+
+    // Filter out problematic links
+    const validLinks = graph.links.filter(link => {
+      // Check if source and target are different (no self-loops)
+      if (link.source === link.target) {
+        console.warn(`Removed self-referencing link: ${link.source} -> ${link.target}`);
+        return false;
+      }
+
+      // Check if both source and target nodes exist
+      if (!nodeMap.has(link.source) || !nodeMap.has(link.target)) {
+        console.warn(`Removed link with missing node: ${link.source} -> ${link.target}`);
+        return false;
+      }
+
+      return true;
+    });
+
+    // Create a simple directed graph to check for cycles
+    const graph2 = {};
+    validLinks.forEach(link => {
+      if (!graph2[link.source]) graph2[link.source] = [];
+      graph2[link.source].push(link.target);
+    });
+
+    // Function to check if a link would create a cycle
+    const wouldCreateCycle = (source: string, target: string, visited = new Set<string>()): boolean => {
+      if (source === target) return true;
+      if (visited.has(source)) return false;
+
+      visited.add(source);
+      const neighbors = graph2[source] || [];
+
+      for (const neighbor of neighbors) {
+        if (wouldCreateCycle(neighbor, target, visited)) {
+          return true;
+        }
+      }
+
+      return false;
+    };
+
+    // Filter out links that would create cycles
+    const acyclicLinks = validLinks.filter(link => {
+      // Check if adding this link would create a cycle
+      if (wouldCreateCycle(link.target, link.source)) {
+        console.warn(`Removed link that would create cycle: ${link.source} -> ${link.target}`);
+        return false;
+      }
+      return true;
+    });
+
+    return {
+      nodes: graph.nodes,
+      links: acyclicLinks
+    };
+  };
 
   useEffect(() => {
-    if (!svgRef.current) return
+    if (!svgRef.current || !data || loading) return
 
     const width = 800
     const height = 600
@@ -83,11 +168,29 @@ export function NarrativeFlow() {
         [width - 1, height - 5],
       ])
 
-    // Format the data for Sankey
-    const sankeyData = sankeyGenerator({
-      nodes: data.nodes.map((d) => Object.assign({}, d)),
-      links: data.links.map((d) => Object.assign({}, d)),
-    })
+    // Remove circular links before passing to Sankey
+    const cleanedData = removeCircularLinks(data);
+
+    // Format the data for Sankey with error handling
+    let sankeyData;
+    try {
+      sankeyData = sankeyGenerator({
+        nodes: cleanedData.nodes.map((d) => Object.assign({}, d)),
+        links: cleanedData.links.map((d) => Object.assign({}, d)),
+      });
+    } catch (err) {
+      console.error("Error generating Sankey diagram:", err);
+      // If there's still an error, use an even more simplified dataset
+      // This is a fallback in case our cycle detection missed something
+      const minimalData = {
+        nodes: cleanedData.nodes,
+        links: [] // No links = no cycles
+      };
+      sankeyData = sankeyGenerator({
+        nodes: minimalData.nodes.map((d) => Object.assign({}, d)),
+        links: minimalData.links,
+      });
+    }
 
     // Color scale for different groups
     const color = d3.scaleOrdinal(d3.schemeCategory10)
@@ -141,11 +244,21 @@ export function NarrativeFlow() {
     return () => {
       // Cleanup
     }
-  }, [])
+  }, [data, loading])
 
   return (
     <div className="w-full h-[600px] overflow-hidden">
-      <svg ref={svgRef} className="w-full h-full"></svg>
+      {loading ? (
+        <div className="flex items-center justify-center h-full">
+          <Skeleton className="h-[500px] w-full" />
+        </div>
+      ) : error ? (
+        <div className="flex items-center justify-center h-full text-red-500">
+          <p>{error}</p>
+        </div>
+      ) : (
+        <svg ref={svgRef} className="w-full h-full"></svg>
+      )}
     </div>
   )
 }

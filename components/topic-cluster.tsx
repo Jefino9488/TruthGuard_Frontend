@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import * as d3 from "d3"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface Node {
   id: string
@@ -20,57 +21,64 @@ interface Graph {
   links: Link[]
 }
 
-// Sample data for topic clusters
-const data: Graph = {
+// Fallback data in case the API fails
+const fallbackData: Graph = {
   nodes: [
     { id: "Economy", group: 1, value: 25 },
-    { id: "Inflation", group: 1, value: 18 },
-    { id: "Interest Rates", group: 1, value: 15 },
-    { id: "Jobs", group: 1, value: 20 },
-    { id: "Stock Market", group: 1, value: 12 },
     { id: "Politics", group: 2, value: 30 },
-    { id: "Elections", group: 2, value: 22 },
-    { id: "Policy", group: 2, value: 18 },
-    { id: "Legislation", group: 2, value: 15 },
     { id: "Climate", group: 3, value: 20 },
-    { id: "Environment", group: 3, value: 15 },
-    { id: "Renewable Energy", group: 3, value: 12 },
-    { id: "Carbon Emissions", group: 3, value: 10 },
     { id: "Healthcare", group: 4, value: 18 },
-    { id: "Pandemic", group: 4, value: 15 },
-    { id: "Insurance", group: 4, value: 10 },
     { id: "Technology", group: 5, value: 22 },
-    { id: "AI", group: 5, value: 18 },
-    { id: "Social Media", group: 5, value: 15 },
   ],
   links: [
-    { source: "Economy", target: "Inflation", value: 8 },
-    { source: "Economy", target: "Interest Rates", value: 7 },
-    { source: "Economy", target: "Jobs", value: 9 },
-    { source: "Economy", target: "Stock Market", value: 6 },
-    { source: "Inflation", target: "Interest Rates", value: 5 },
-    { source: "Politics", target: "Elections", value: 9 },
-    { source: "Politics", target: "Policy", value: 8 },
-    { source: "Politics", target: "Legislation", value: 7 },
-    { source: "Politics", target: "Economy", value: 5 },
-    { source: "Climate", target: "Environment", value: 7 },
-    { source: "Climate", target: "Renewable Energy", value: 6 },
-    { source: "Climate", target: "Carbon Emissions", value: 5 },
+    { source: "Economy", target: "Politics", value: 5 },
     { source: "Climate", target: "Politics", value: 4 },
-    { source: "Healthcare", target: "Pandemic", value: 6 },
-    { source: "Healthcare", target: "Insurance", value: 5 },
     { source: "Healthcare", target: "Politics", value: 4 },
-    { source: "Technology", target: "AI", value: 7 },
-    { source: "Technology", target: "Social Media", value: 6 },
     { source: "Technology", target: "Economy", value: 3 },
   ],
 }
 
 export function TopicCluster() {
   const svgRef = useRef<SVGSVGElement>(null)
+  const [data, setData] = useState<Graph | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  // Fetch topic clusters data from the API
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true)
+        const response = await fetch('/api/topic-clusters')
+
+        if (!response.ok) {
+          throw new Error(`API error: ${response.statusText}`)
+        }
+
+        const result = await response.json()
+
+        if (result.success && result.data) {
+          setData(result.data)
+        } else {
+          // Use fallback data if API returns empty data
+          console.warn("API returned empty data, using fallback data")
+          setData(fallbackData)
+        }
+      } catch (err) {
+        console.error("Error fetching topic clusters data:", err)
+        setError("Failed to load topic clusters data")
+        // Use fallback data on error
+        setData(fallbackData)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [])
 
   useEffect(() => {
-    if (!svgRef.current) return
+    if (!svgRef.current || !data || loading) return
 
     const width = 800
     const height = 500
@@ -174,11 +182,21 @@ export function TopicCluster() {
     return () => {
       simulation.stop()
     }
-  }, [])
+  }, [data, loading])
 
   return (
     <div className="w-full h-[500px] overflow-hidden">
-      <svg ref={svgRef} className="w-full h-full"></svg>
+      {loading ? (
+        <div className="flex items-center justify-center h-full">
+          <Skeleton className="h-[400px] w-full" />
+        </div>
+      ) : error ? (
+        <div className="flex items-center justify-center h-full text-red-500">
+          <p>{error}</p>
+        </div>
+      ) : (
+        <svg ref={svgRef} className="w-full h-full"></svg>
+      )}
     </div>
   )
 }

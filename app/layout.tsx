@@ -9,7 +9,6 @@ import {
     Database,
     Search,
     BarChart3,
-    MessageSquare,
     TrendingUp,
     Zap,
     Home,
@@ -87,13 +86,6 @@ export default function RootLayout({
                                 >
                                     <TrendingUp className="h-4 w-4" />
                                     <span>Trends</span>
-                                </Link>
-                                <Link
-                                    href="/chat"
-                                    className="flex items-center space-x-1 text-sm hover:text-blue-600"
-                                >
-                                    <MessageSquare className="h-4 w-4" />
-                                    <span>AI Chat</span>
                                 </Link>
 
                                 <Link

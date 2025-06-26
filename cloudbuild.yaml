@@ -17,6 +17,7 @@ steps:
       - '.'
     secretEnv: ['NEXT_PUBLIC_MONGODB_URI', 'NEXT_PUBLIC_MONGODB_DB', 'NEXT_PUBLIC_GOOGLE_AI_API_KEY', 'NEXT_PUBLIC_BACKEND_BASE_URL']
 
+  # Push the images to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
     args: ['push', 'asia-south1-docker.pkg.dev/constant-wonder-461912-n2/truthguard-repo/truthguard-frontend:$COMMIT_SHA']
 
@@ -37,11 +38,13 @@ steps:
       - '--platform'
       - 'managed'
       - '--allow-unauthenticated'
-      - '--set-secrets'
-      - 'NEXT_PUBLIC_MONGODB_URI=NEXT_PUBLIC_MONGODB_URI:latest,NEXT_PUBLIC_MONGODB_DB=NEXT_PUBLIC_MONGODB_DB:latest,NEXT_PUBLIC_GOOGLE_AI_API_KEY=NEXT_PUBLIC_GOOGLE_AI_API_KEY:latest,NEXT_PUBLIC_BACKEND_BASE_URL=NEXT_PUBLIC_BACKEND_BASE_URL:latest'
-      - '--set-env-vars'
-      - 'NODE_ENV=production'
+      - '--update-secrets=NEXT_PUBLIC_MONGODB_URI=NEXT_PUBLIC_MONGODB_URI:latest'
+      - '--update-secrets=NEXT_PUBLIC_MONGODB_DB=NEXT_PUBLIC_MONGODB_DB:latest'
+      - '--update-secrets=NEXT_PUBLIC_GOOGLE_AI_API_KEY=NEXT_PUBLIC_GOOGLE_AI_API_KEY:latest'
+      - '--update-secrets=NEXT_PUBLIC_BACKEND_BASE_URL=NEXT_PUBLIC_BACKEND_BASE_URL:latest'
+      - '--set-env-vars=NODE_ENV=production'
 
+# Make secrets available to all build steps from Secret Manager
 availableSecrets:
   secretManager:
     - versionName: projects/constant-wonder-461912-n2/secrets/NEXT_PUBLIC_MONGODB_URI/versions/latest

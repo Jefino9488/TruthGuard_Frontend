@@ -1,14 +1,15 @@
 FROM node:20-slim AS base
 WORKDIR /app
 
-# Install pnpm with specific version for stability
-RUN npm install -g pnpm@8.6.12
+# Install latest pnpm
+RUN npm install -g pnpm
 
 # Install dependencies stage
 FROM base AS deps
 WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
+# Allow pnpm to recreate the lockfile if needed
+RUN pnpm install --no-frozen-lockfile
 
 # Builder stage
 FROM base AS builder

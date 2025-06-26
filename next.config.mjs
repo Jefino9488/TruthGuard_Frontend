@@ -18,7 +18,7 @@ const getEnvVar = (key) => {
       case 'NEXT_PUBLIC_BACKEND_BASE_URL':
         return 'https://backend-377368788327.asia-south1.run.app';
       case 'NEXT_PUBLIC_MONGODB_URI':
-        return 'mongodb+srv://your-mongodb-uri';
+        return 'mongodb+srv://jefino9488:Jefino1537@truthguardcluster.2wku5ai.mongodb.net/?retryWrites=true&w=majority&appName=TruthGuardCluster';
       case 'NEXT_PUBLIC_MONGODB_DB':
         return 'truthguard';
       default:

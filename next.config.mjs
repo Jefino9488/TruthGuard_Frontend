@@ -1,4 +1,33 @@
 /** @type {import('next').NextConfig} */
+
+// Check for required environment variables
+const requiredEnv = [
+  'NEXT_PUBLIC_MONGODB_URI',
+  'NEXT_PUBLIC_MONGODB_DB',
+  'NEXT_PUBLIC_GOOGLE_AI_API_KEY',
+  'NEXT_PUBLIC_BACKEND_BASE_URL',
+];
+
+// Function to get environment variable with fallback
+const getEnvVar = (key) => {
+  const value = process.env[key];
+  if (!value) {
+    console.warn(`Warning: ${key} is not set. Using fallback value.`);
+    // Provide fallback values for development
+    switch (key) {
+      case 'NEXT_PUBLIC_BACKEND_BASE_URL':
+        return 'https://backend-377368788327.asia-south1.run.app';
+      case 'NEXT_PUBLIC_MONGODB_URI':
+        return 'mongodb+srv://your-mongodb-uri';
+      case 'NEXT_PUBLIC_MONGODB_DB':
+        return 'truthguard';
+      default:
+        return '';
+    }
+  }
+  return value;
+};
+
 const nextConfig = {
   output: 'standalone',
   eslint: {
@@ -11,21 +40,13 @@ const nextConfig = {
     unoptimized: true,
   },
   env: {
-    NEXT_PUBLIC_MONGODB_URI: process.env.NEXT_PUBLIC_MONGODB_URI || '',
-    NEXT_PUBLIC_MONGODB_DB: process.env.NEXT_PUBLIC_MONGODB_DB || '',
-    NEXT_PUBLIC_GOOGLE_AI_API_KEY: process.env.NEXT_PUBLIC_GOOGLE_AI_API_KEY || '',
-    NEXT_PUBLIC_BACKEND_BASE_URL: process.env.NEXT_PUBLIC_BACKEND_BASE_URL || 'https://backend-377368788327.asia-south1.run.app',
+    NEXT_PUBLIC_MONGODB_URI: getEnvVar('NEXT_PUBLIC_MONGODB_URI'),
+    NEXT_PUBLIC_MONGODB_DB: getEnvVar('NEXT_PUBLIC_MONGODB_DB'),
+    NEXT_PUBLIC_GOOGLE_AI_API_KEY: getEnvVar('NEXT_PUBLIC_GOOGLE_AI_API_KEY'),
+    NEXT_PUBLIC_BACKEND_BASE_URL: getEnvVar('NEXT_PUBLIC_BACKEND_BASE_URL'),
   },
-  // async rewrites() {
-  //   return [
-  //     {
-  //       source: '/api/:path*',
-  //       destination: `${process.env.BACKEND_BASE_URL}/api/:path*`,
-  //     },
-  //   ]
-  // },
   poweredByHeader: false,
   generateEtags: false,
 }
 
-export default nextConfig
+export default nextConfig;
